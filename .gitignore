@@ -1,1 +1,15 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
 
+# Virtual environments
+.venv/
+venv/
+
+# HTML outputs
+history.html
+
+# macOS
+.DS_Store
