@@ -53,6 +53,54 @@ python3 claude_history.py [options]
 ./claude_history.py --days 30 --html > history.html
 ```
 
+## Reflection workflow (`/reflect`)
+
+The repo doubles as a **reflection tool** in the spirit of Donald Schön's
+*The Reflective Practitioner*: your Claude Code transcripts are a complete
+protocol of your collaboration moves — prompt framings, the situation's
+back-talk, your corrections. The reflection workflow analyzes them to improve
+how you work with Claude.
+
+Methodological ground rules:
+
+1. **The critic is never the generator.** Analysis runs in a fresh subagent,
+   using a different model than the one that produced the majority of the
+   analyzed sessions. The orchestrating instance only prepares evidence and
+   relays the critique.
+2. **Evidence before opinion.** A deterministic metrics layer
+   (`reflect_metrics.py`) counts observable events — corrections,
+   interruptions, short steering follow-ups, sessions where Claude had to ask
+   back — and every claim in the critique must cite session + timestamp.
+3. **The window excludes today**, so a running session never judges its own
+   transcript.
+
+### Components
+
+- **`reflect_metrics.py`** — computes observable-event metrics from a pairs
+  JSON file (`claude_history.py --format json`, noise included):
+
+  ```bash
+  ./claude_history.py --days 8 --max-chars 0 --format json | ./reflect_metrics.py            # markdown
+  ./reflect_metrics.py pairs.json --format json --exemplars 20                               # machine-readable
+  ```
+
+- **`just reflect-data DAYS PROJECT OUTDIR`** — extracts `full.json`,
+  `clean.json` (human turns only), and `metrics.md` for the last `DAYS` full
+  days (today excluded).
+
+- **`skills/reflect/`** — the `/reflect` Claude Code skill that orchestrates
+  extraction, metrics, an independent critic agent, and saves a dated report
+  under `reflections/`. Install it with:
+
+  ```bash
+  just install-skill    # symlinks into ~/.claude/skills/reflect
+  ```
+
+  Then, in any Claude Code session: `/reflect 7` or `/reflect 14 myproject`.
+
+Reports land in `reflections/`, which is **gitignored** — they quote private
+prompts verbatim and must not be committed.
+
 ## Companion Tools
 
 ### `build_table.py`

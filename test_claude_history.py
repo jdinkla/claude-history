@@ -523,7 +523,9 @@ class TestMainFormats(unittest.TestCase):
         self.patcher = unittest.mock.patch.object(ch, "PROJECTS_DIR", self.projects)
         self.patcher.start()
         self.now = utc_now()
-        self.since = (self.now - timedelta(hours=1)).astimezone().date().isoformat()
+        # Full ISO timestamp, not a bare date: parse_date treats bare dates as UTC
+        # midnight, which makes a date-only --since flaky around local midnight.
+        self.since = (self.now - timedelta(hours=1)).astimezone().isoformat()
 
     def tearDown(self):
         self.patcher.stop()
@@ -931,7 +933,9 @@ class TestMainNoNoise(unittest.TestCase):
         self.patcher = unittest.mock.patch.object(ch, "PROJECTS_DIR", self.projects)
         self.patcher.start()
         self.now = utc_now()
-        self.since = (self.now - timedelta(hours=1)).astimezone().date().isoformat()
+        # Full ISO timestamp, not a bare date: parse_date treats bare dates as UTC
+        # midnight, which makes a date-only --since flaky around local midnight.
+        self.since = (self.now - timedelta(hours=1)).astimezone().isoformat()
 
     def tearDown(self):
         self.patcher.stop()

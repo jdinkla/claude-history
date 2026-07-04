@@ -11,5 +11,8 @@ venv/
 # HTML outputs
 history.html
 
+# Reflection reports and extracted data (contain verbatim private prompts)
+reflections/
+
 # macOS
 .DS_Store
