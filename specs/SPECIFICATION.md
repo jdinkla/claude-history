@@ -20,7 +20,7 @@ JSON/JSONL/HTML formats and equivalent output for the text/Markdown formats.
   `datetime.fromisoformat` accepting a `+00:00` offset, and the `str | None`
   annotation syntax needs 3.10+ (though `from __future__ import annotations`,
   which the script uses, would otherwise relax that).
-- **Entry point:** an executable script `claude_history.py` that
+- **Entry point:** an executable script `src/claude_history.py` that
   self-bootstraps via [`uv`](https://docs.astral.sh/uv/). It begins with a
   `uv run --script` shebang followed by a [PEP 723](https://peps.python.org/pep-0723/)
   inline-metadata block declaring the Python version and an empty dependency
@@ -34,8 +34,8 @@ JSON/JSONL/HTML formats and equivalent output for the text/Markdown formats.
   # ///
   ```
 
-  Running `./claude_history.py …` directly lets `uv` provision the interpreter;
-  `uv run claude_history.py …` and `python3 claude_history.py …` (on a 3.11+
+  Running `./src/claude_history.py …` directly lets `uv` provision the interpreter;
+  `uv run src/claude_history.py …` and `python3 src/claude_history.py …` (on a 3.11+
   interpreter) are equivalent.
 - **Imports used:** `argparse`, `json`, `os`, `re`, `sys`, `dataclasses.dataclass`,
   `datetime` (`datetime`, `timedelta`, `timezone`), `pathlib.Path`,
@@ -604,7 +604,7 @@ default:
 
 # Dump prompts for PROJECT over the last DAYS days (machine-generated prompts filtered).
 prompts DAYS PROJECT:
-    ./claude_history.py --days {{DAYS}} --project {{PROJECT}} --no-noise --format json
+    ./src/claude_history.py --days {{DAYS}} --project {{PROJECT}} --no-noise --format json
 ```
 
 ---
@@ -613,16 +613,16 @@ prompts DAYS PROJECT:
 
 ```bash
 # Today's history as plain text (default)
-./claude_history.py
+./src/claude_history.py
 
 # Last 8 days, only the "backend" project, drop machine prompts, as paired JSON
-./claude_history.py --days 8 --project backend --no-noise --json
+./src/claude_history.py --days 8 --project backend --no-noise --json
 
 # A date range as Markdown, untruncated
-./claude_history.py --since 2026-05-01 --until 2026-05-08 --max-chars 0 --format md
+./src/claude_history.py --since 2026-05-01 --until 2026-05-08 --max-chars 0 --format md
 
 # Self-contained interactive HTML page
-./claude_history.py --days 30 --html > history.html
+./src/claude_history.py --days 30 --html > history.html
 ```
 
 ---

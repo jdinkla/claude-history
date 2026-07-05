@@ -10,22 +10,22 @@ A command-line tool that extracts and displays the prompt/answer history of **Cl
 
 ## Installation & Usage
 
-The main script is `claude_history.py`, which self-bootstraps via `uv`:
+The main script is `src/claude_history.py`, which self-bootstraps via `uv`:
 
 ```bash
 # Run directly (uv handles Python provisioning)
-./claude_history.py [options]
+./src/claude_history.py [options]
 
 # Or with uv explicitly
-uv run claude_history.py [options]
+uv run src/claude_history.py [options]
 
 # Or with Python 3.11+
-python3 claude_history.py [options]
+python3 src/claude_history.py [options]
 ```
 
 ### CLI Flags
 
-Run `./claude_history.py --help` for the full flag reference; the authoritative
+Run `./src/claude_history.py --help` for the full flag reference; the authoritative
 description of every flag and its exact behavior is
 [`specs/SPECIFICATION.md`](specs/SPECIFICATION.md). One semantic worth knowing
 up front: bare `--since`/`--until` dates mean **local midnight** on the
@@ -35,16 +35,16 @@ executing machine.
 
 ```bash
 # Today's history as plain text (default)
-./claude_history.py
+./src/claude_history.py
 
 # Last 8 days, only the "backend" project, drop machine prompts, as paired JSON
-./claude_history.py --days 8 --project backend --no-noise --json
+./src/claude_history.py --days 8 --project backend --no-noise --json
 
 # A date range as Markdown, untruncated
-./claude_history.py --since 2026-05-01 --until 2026-05-08 --max-chars 0 --format md
+./src/claude_history.py --since 2026-05-01 --until 2026-05-08 --max-chars 0 --format md
 
 # Self-contained interactive HTML page
-./claude_history.py --days 30 --html > history.html
+./src/claude_history.py --days 30 --html > history.html
 ```
 
 ## Reflection workflow (`/reflect`)
@@ -74,7 +74,7 @@ Methodological ground rules:
   JSON file (`claude_history.py --format json`, noise included):
 
   ```bash
-  ./claude_history.py --days 8 --max-chars 0 --format json | ./reflect_metrics.py
+  ./src/claude_history.py --days 8 --max-chars 0 --format json | ./src/reflect_metrics.py
   ```
 
 - **`skills/reflect/`** — the `/reflect` Claude Code skill that orchestrates
@@ -93,7 +93,7 @@ lives in [`skills/reflect/SKILL.md`](skills/reflect/SKILL.md).
 A utility to render a previously saved `--format json` pairs file as a flat interactive HTML table. Usage:
 
 ```bash
-./build_table.py [SRC.json] [DST.html]
+./src/build_table.py [SRC.json] [DST.html]
 ```
 
 Defaults to `last_8_days_backend_no_noise.json` as source and `.html` suffix for destination.

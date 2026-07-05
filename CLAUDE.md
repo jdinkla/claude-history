@@ -20,13 +20,13 @@ CLI tools that extract and analyze the prompt/answer history of Claude Code sess
 
 ```bash
 just test                          # full suite (python3 -m unittest -v)
-python3 -m unittest test_claude_history.TestParseDate.test_bare_date_is_local_midnight  # single test
+just test test_claude_history.TestParseDate.test_bare_date_is_local_midnight  # single test
 just prompts 8 backend             # last 8 days of one project as JSON pairs
 just days 3 md                     # last 3 days, all projects
 just yesterday                     # yesterday only
 just reflect-data 7 "" OUTDIR      # extract full.json/clean.json/metrics.md for reflection
 just install-skill                 # symlink skills/reflect into ~/.claude/skills
-./claude_history.py --days 8 --no-noise --format json   # run directly (uv bootstraps)
+./src/claude_history.py --days 8 --no-noise --format json   # run directly (uv bootstraps)
 ```
 
 ## Architecture notes that span files
