@@ -30,6 +30,12 @@ days K FORMAT="text":
 yesterday FORMAT="text":
     ./src/claude_history.py --since $(date -v-1d +%F) --until $(date +%F) --no-noise --format {{FORMAT}}
 
+[group('history')]
+[doc("Prompt statistics for the last DAYS days as a self-contained HTML page (stats.html)")]
+stats DAYS="30":
+    ./src/claude_history.py --days {{DAYS}} --max-chars 0 --format json | ./src/stats.py --format html > stats.html
+    @echo "Written stats.html"
+
 # --- Reflection ---
 
 [group('reflection')]

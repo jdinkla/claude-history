@@ -10,6 +10,7 @@ venv/
 
 # HTML outputs
 history.html
+stats.html
 
 # Reflection reports and extracted data (contain verbatim private prompts)
 reflections/

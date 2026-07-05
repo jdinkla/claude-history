@@ -98,6 +98,20 @@ A utility to render a previously saved `--format json` pairs file as a flat inte
 
 Defaults to `last_8_days_backend_no_noise.json` as source and `.html` suffix for destination.
 
+### `stats.py`
+
+Aggregates a pairs JSON file into usage statistics — prompt counts per project,
+day, weekday, and hour, plus model breakdown and per-session distribution — as
+deterministic JSON or a self-contained HTML page with charts
+(spec: [`specs/STATISTICS.md`](specs/STATISTICS.md)). The input must be
+extracted **without** `--no-noise` and **with** `--max-chars 0`; the shortcut
+does this for you:
+
+```bash
+just stats 30        # last 30 days -> stats.html (gitignored)
+./src/claude_history.py --days 30 --max-chars 0 --format json | ./src/stats.py   # raw JSON aggregates
+```
+
 ### `justfile`
 
 All workflow shortcuts (history dumps, tests, reflection data, skill install)
@@ -119,6 +133,8 @@ source rather than in copies:
 - **[`specs/SPECIFICATION.md`](specs/SPECIFICATION.md)** — the complete
   behavioral specification of `claude_history.py`; the authority on flags,
   formats, and semantics.
+- **[`specs/STATISTICS.md`](specs/STATISTICS.md)** — the behavioral
+  specification of `stats.py` (aggregates schema, HTML page, CLI).
 - **[`skills/reflect/SKILL.md`](skills/reflect/SKILL.md)** — the `/reflect`
   orchestration procedure and critic methodology.
 - **`backlog/`** — task history and open work (Backlog.md).

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CLI tools that extract and analyze the prompt/answer history of Claude Code sessions from the transcript files under `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`. Two layers:
 
-1. **Extraction** — `claude_history.py` filters sessions by date/project and renders text, Markdown, JSONL, JSON pairs, or a self-contained interactive HTML page. `build_table.py` renders a saved pairs JSON as a flat HTML table.
+1. **Extraction** — `claude_history.py` filters sessions by date/project and renders text, Markdown, JSONL, JSON pairs, or a self-contained interactive HTML page. `build_table.py` renders a saved pairs JSON as a flat HTML table. `stats.py` aggregates pairs JSON into usage statistics (per project/day/weekday/hour, models, sessions) as JSON or an HTML page (spec: `specs/STATISTICS.md`).
 2. **Reflection** — `reflect_metrics.py` + the `/reflect` skill (`skills/reflect/SKILL.md`) implement Schön-style reflection-on-action over the user's own collaboration transcripts (see README "Reflection workflow").
 
 ## Hard constraints
@@ -24,6 +24,7 @@ just test test_claude_history.TestParseDate.test_bare_date_is_local_midnight  # 
 just prompts 8 backend             # last 8 days of one project as JSON pairs
 just days 3 md                     # last 3 days, all projects
 just yesterday                     # yesterday only
+just stats 30                      # last 30 days as a statistics HTML page (stats.html, gitignored)
 just reflect-data 7 "" OUTDIR      # extract full.json/clean.json/metrics.md for reflection
 just install-skill                 # symlink skills/reflect into ~/.claude/skills
 ./src/claude_history.py --days 8 --no-noise --format json   # run directly (uv bootstraps)
@@ -32,7 +33,7 @@ just install-skill                 # symlink skills/reflect into ~/.claude/skill
 ## Architecture notes that span files
 
 - **Date semantics (decided 2026-07-05):** bare `--since/--until` dates and naive ISO timestamps mean **local time on the executing machine**; a bare date is local midnight. `parse_date` attaches local tz via `dt.astimezone()`. Tests pin this; don't reintroduce UTC-midnight interpretation.
-- **Noise filtering is duplicated by design:** `claude_history.NOISE_PATTERNS` (anonymous, fullmatch, used by `--no-noise`) and `reflect_metrics.NOISE_KINDS` (named kinds: slash_command / interruption / local_command / context_dump, used for classification). Changing what counts as noise means touching both — and the spec.
+- **Noise filtering is duplicated by design:** `claude_history.NOISE_PATTERNS` (anonymous, fullmatch, used by `--no-noise`) and `reflect_metrics.NOISE_KINDS` (named kinds: slash_command / interruption / local_command / context_dump, used for classification). Changing what counts as noise means touching both — and the spec. `stats.py` imports `classify_prompt` from `reflect_metrics` — never add a third copy.
 - **Pairing logic** lives in `main()`'s `build_pairs()` in `claude_history.py`: consecutive assistant texts append to the current pair's answer; a session change or a new user prompt starts a new pair; the first assistant timestamp/model wins. The JSON pairs schema (`timestamp, session, project, model, prompt, answer, answer_timestamp`) is the contract consumed by `build_table.py` and `reflect_metrics.py`.
 - **Reflection ground rules** (user's explicit design decisions, encoded in `skills/reflect/SKILL.md`): the critic is never the generator — critique runs in a fresh subagent with a model chosen outside the analyzed window's majority; every claim must cite session + timestamp; the analysis window always ends yesterday so a running session never judges its own transcript.
 - **Tests** are stdlib `unittest`; fixtures patch `ch.PROJECTS_DIR` into a temp dir and build `--since` values from full ISO timestamps (bare-date fixtures made the suite time-of-day flaky once — don't regress this).
