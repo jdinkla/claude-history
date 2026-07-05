@@ -25,17 +25,11 @@ python3 claude_history.py [options]
 
 ### CLI Flags
 
-| Flag           | Type    | Default | Description |
-|---|---|---|---|
-| `--days`       | int     | `None`  | Show entries from the last N days (default: 1 = today). |
-| `--since`      | date    | —       | Show entries on/after this date (YYYY-MM-DD or ISO-8601; bare dates and naive timestamps mean local time — a bare date is local midnight). |
-| `--until`      | date    | `None`  | Show entries before this date (exclusive; same local-time semantics). |
-| `--project`    | string  | `None`  | Substring filter on the project path. |
-| `--no-noise`   | flag    | `False` | Drop machine-generated prompts (slash-command tags, local-command stdout/caveat, /context dumps, interruption markers). |
-| `--max-chars`  | int     | `2000`  | Truncate each message to this many characters (0 = no limit). |
-| `--format`     | choice  | `text`  | Output format: one of `text`, `md`, `jsonl`, `json`, `html`. |
-| `--json`       | flag    | `False` | Shortcut for `--format json` (emit a single JSON array). |
-| `--html`       | flag    | `False` | Shortcut for `--format html` (self-contained interactive page). |
+Run `./claude_history.py --help` for the full flag reference; the authoritative
+description of every flag and its exact behavior is
+[`specs/SPECIFICATION.md`](specs/SPECIFICATION.md). One semantic worth knowing
+up front: bare `--since`/`--until` dates mean **local midnight** on the
+executing machine.
 
 ### Worked Examples
 
@@ -80,26 +74,17 @@ Methodological ground rules:
   JSON file (`claude_history.py --format json`, noise included):
 
   ```bash
-  ./claude_history.py --days 8 --max-chars 0 --format json | ./reflect_metrics.py            # markdown
-  ./reflect_metrics.py pairs.json --format json --exemplars 20                               # machine-readable
+  ./claude_history.py --days 8 --max-chars 0 --format json | ./reflect_metrics.py
   ```
-
-- **`just reflect-data DAYS PROJECT OUTDIR`** — extracts `full.json`,
-  `clean.json` (human turns only), and `metrics.md` for the last `DAYS` full
-  days (today excluded).
 
 - **`skills/reflect/`** — the `/reflect` Claude Code skill that orchestrates
-  extraction, metrics, an independent critic agent, and saves a dated report
-  under `reflections/`. Install it with:
+  extraction, metrics, and the independent critic, and saves a dated report
+  under `reflections/` (gitignored — reports quote private prompts verbatim).
+  Install once with `just install-skill`, then use `/reflect 7` or
+  `/reflect 14 myproject` in any Claude Code session.
 
-  ```bash
-  just install-skill    # symlinks into ~/.claude/skills/reflect
-  ```
-
-  Then, in any Claude Code session: `/reflect 7` or `/reflect 14 myproject`.
-
-Reports land in `reflections/`, which is **gitignored** — they quote private
-prompts verbatim and must not be committed.
+The full orchestration procedure (including the critic's methodology prompt)
+lives in [`skills/reflect/SKILL.md`](skills/reflect/SKILL.md).
 
 ## Companion Tools
 
@@ -115,16 +100,28 @@ Defaults to `last_8_days_backend_no_noise.json` as source and `.html` suffix for
 
 ### `justfile`
 
-A `just` task runner for convenience shortcuts. Example:
+All workflow shortcuts (history dumps, tests, reflection data, skill install)
+are `just` recipes — discover them with:
 
 ```bash
-just prompts 8 backend
+just --list
 ```
 
-This runs:
-```bash
-./claude_history.py --days 8 --project backend --no-noise --format json
-```
+## Documentation map
+
+To keep things DRY, each document owns one concern — look things up at the
+source rather than in copies:
+
+- **[`README.md`](README.md)** (this file) — what the tools are and how to use them.
+- **[`CLAUDE.md`](CLAUDE.md)** — working conventions for Claude Code in this
+  repo: commands, hard constraints (stdlib-only, spec sync, `reflections/`
+  privacy), and the cross-file architecture notes.
+- **[`specs/SPECIFICATION.md`](specs/SPECIFICATION.md)** — the complete
+  behavioral specification of `claude_history.py`; the authority on flags,
+  formats, and semantics.
+- **[`skills/reflect/SKILL.md`](skills/reflect/SKILL.md)** — the `/reflect`
+  orchestration procedure and critic methodology.
+- **`backlog/`** — task history and open work (Backlog.md).
 
 ## License
 
