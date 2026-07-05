@@ -1,23 +1,39 @@
-default:
-    @just --list
+# justfile for claude-history — extract and reflect on Claude Code session history
+# Run `just --list` to see all targets, e.g. `just days 3 md`
 
-# Dump prompts for PROJECT over the last DAYS days (machine-generated prompts filtered).
+# --- Dev ---
+
+[group('dev')]
+[doc("Show available commands")]
+default:
+    @just --list --unsorted
+
+[group('dev')]
+[doc("Run the test suite (pass extra unittest args, e.g. test_claude_history.TestParseDate)")]
+test *ARGS:
+    python3 -m unittest -v {{ARGS}}
+
+# --- History ---
+
+[group('history')]
+[doc("Dump prompts for PROJECT over the last DAYS days as JSON pairs (noise filtered)")]
 prompts DAYS PROJECT:
     ./claude_history.py --days {{DAYS}} --project {{PROJECT}} --no-noise --format json
 
-# Show prompts across all projects for the last K days (today + K-1 previous; machine-generated prompts filtered).
+[group('history')]
+[doc("Show prompts across all projects for the last K days (today + K-1 previous; noise filtered)")]
 days K FORMAT="text":
     ./claude_history.py --days {{K}} --no-noise --format {{FORMAT}}
 
-# Show yesterday's prompts across all projects (machine-generated prompts filtered).
+[group('history')]
+[doc("Show yesterday's prompts across all projects (noise filtered)")]
 yesterday FORMAT="text":
     ./claude_history.py --since $(date -v-1d +%F) --until $(date +%F) --no-noise --format {{FORMAT}}
 
-# Run the test suite.
-test:
-    python3 -m unittest -v
+# --- Reflection ---
 
-# Prepare reflection data for the last DAYS full days (today excluded): full + clean pairs and observable-event metrics.
+[group('reflection')]
+[doc("Prepare reflection data for the last DAYS full days (today excluded): full/clean pairs + metrics")]
 reflect-data DAYS="7" PROJECT="" OUTDIR="reflections/data":
     mkdir -p "{{OUTDIR}}"
     ./claude_history.py --since $(date -v-{{DAYS}}d +%F) --until $(date +%F) --project "{{PROJECT}}" --max-chars 0 --format json > "{{OUTDIR}}/full.json"
@@ -25,7 +41,8 @@ reflect-data DAYS="7" PROJECT="" OUTDIR="reflections/data":
     ./reflect_metrics.py "{{OUTDIR}}/full.json" > "{{OUTDIR}}/metrics.md"
     @echo "Reflection data written to {{OUTDIR}}"
 
-# Install the /reflect skill into ~/.claude/skills (symlink into this repo).
+[group('reflection')]
+[doc("Install the /reflect skill into ~/.claude/skills (symlink into this repo)")]
 install-skill:
     mkdir -p ~/.claude/skills
     ln -sfn "$(pwd)/skills/reflect" ~/.claude/skills/reflect
