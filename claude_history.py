@@ -550,7 +550,9 @@ def parse_date(s: str):
     if dt is None:
         dt = datetime.strptime(s, "%Y-%m-%d")
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc).astimezone()
+        # Naive input (bare date or ISO without offset) means local time on
+        # the machine running this — a bare date is local midnight.
+        dt = dt.astimezone()
     return dt
 
 # ---------------------------------------------------------------------------

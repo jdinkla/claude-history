@@ -28,8 +28,8 @@ python3 claude_history.py [options]
 | Flag           | Type    | Default | Description |
 |---|---|---|---|
 | `--days`       | int     | `None`  | Show entries from the last N days (default: 1 = today). |
-| `--since`      | date    | —       | Show entries on/after this date (YYYY-MM-DD or ISO-8601). |
-| `--until`      | date    | `None`  | Show entries before this date (exclusive). |
+| `--since`      | date    | —       | Show entries on/after this date (YYYY-MM-DD or ISO-8601; bare dates and naive timestamps mean local time — a bare date is local midnight). |
+| `--until`      | date    | `None`  | Show entries before this date (exclusive; same local-time semantics). |
 | `--project`    | string  | `None`  | Substring filter on the project path. |
 | `--no-noise`   | flag    | `False` | Drop machine-generated prompts (slash-command tags, local-command stdout/caveat, /context dumps, interruption markers). |
 | `--max-chars`  | int     | `2000`  | Truncate each message to this many characters (0 = no limit). |

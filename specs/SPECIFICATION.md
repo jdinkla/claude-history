@@ -272,12 +272,15 @@ def parse_date(s):
     if dt is None:
         dt = datetime.strptime(s, "%Y-%m-%d")
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc).astimezone()
+        dt = dt.astimezone()
     return dt
 ```
 
-Accepts a full ISO-8601 timestamp or a bare `YYYY-MM-DD` date. Naive results are
-interpreted as UTC and then converted to the local timezone.
+Accepts a full ISO-8601 timestamp or a bare `YYYY-MM-DD` date. Naive results
+are interpreted as **local time on the executing machine** (a bare date is
+local midnight); an explicit offset or `Z` suffix is preserved. Historical
+note: before 2026-07-05 naive input was interpreted as UTC, which in CET/CEST
+shifted date-only windows by 1–2 hours against the local calendar day.
 
 ---
 

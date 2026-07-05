@@ -230,15 +230,22 @@ class TestExtractAssistantText(unittest.TestCase):
 
 class TestParseDate(unittest.TestCase):
 
-    def test_bare_date_gets_utc_then_local(self):
+    def test_bare_date_is_local_midnight(self):
+        # Regression for TASK-9: bare dates mean local midnight on the
+        # executing machine, NOT UTC midnight (which shifted date-only
+        # windows by 1-2 h in CET/CEST and made the suite time-of-day flaky).
         dt = ch.parse_date("2026-01-15")
-        # Naive → replaced with UTC → converted to local
         self.assertIsNotNone(dt.tzinfo)
-        # The date should still be representable as the 15th in UTC
-        utc = dt.astimezone(timezone.utc)
-        self.assertEqual(utc.date().isoformat(), "2026-01-15")
-        self.assertEqual(utc.hour, 0)
-        self.assertEqual(utc.minute, 0)
+        self.assertEqual(dt.date().isoformat(), "2026-01-15")
+        self.assertEqual((dt.hour, dt.minute), (0, 0))
+        expected_offset = datetime(2026, 1, 15).astimezone().utcoffset()
+        self.assertEqual(dt.utcoffset(), expected_offset)
+
+    def test_naive_iso_timestamp_is_local(self):
+        dt = ch.parse_date("2026-06-10T14:30:00")
+        self.assertEqual((dt.hour, dt.minute), (14, 30))
+        expected_offset = datetime(2026, 6, 10).astimezone().utcoffset()
+        self.assertEqual(dt.utcoffset(), expected_offset)
 
     def test_full_iso_with_offset_preserved(self):
         dt = ch.parse_date("2026-06-10T14:30:00+02:00")

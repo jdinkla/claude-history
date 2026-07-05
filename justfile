@@ -18,12 +18,10 @@ test:
     python3 -m unittest -v
 
 # Prepare reflection data for the last DAYS full days (today excluded): full + clean pairs and observable-event metrics.
-# Local-midnight timestamps (not bare dates): claude_history.py treats bare dates as UTC midnight,
-# which in CET/CEST would leak the first hours of today into the window.
 reflect-data DAYS="7" PROJECT="" OUTDIR="reflections/data":
     mkdir -p "{{OUTDIR}}"
-    ./claude_history.py --since $(date -v-{{DAYS}}d +%FT00:00:00%z) --until $(date +%FT00:00:00%z) --project "{{PROJECT}}" --max-chars 0 --format json > "{{OUTDIR}}/full.json"
-    ./claude_history.py --since $(date -v-{{DAYS}}d +%FT00:00:00%z) --until $(date +%FT00:00:00%z) --project "{{PROJECT}}" --no-noise --max-chars 6000 --format json > "{{OUTDIR}}/clean.json"
+    ./claude_history.py --since $(date -v-{{DAYS}}d +%F) --until $(date +%F) --project "{{PROJECT}}" --max-chars 0 --format json > "{{OUTDIR}}/full.json"
+    ./claude_history.py --since $(date -v-{{DAYS}}d +%F) --until $(date +%F) --project "{{PROJECT}}" --no-noise --max-chars 6000 --format json > "{{OUTDIR}}/clean.json"
     ./reflect_metrics.py "{{OUTDIR}}/full.json" > "{{OUTDIR}}/metrics.md"
     @echo "Reflection data written to {{OUTDIR}}"
 
