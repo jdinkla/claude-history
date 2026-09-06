@@ -139,6 +139,13 @@ source rather than in copies:
   orchestration procedure and critic methodology.
 - **`backlog/`** — task history and open work (Backlog.md).
 
+## Author
+
+[Jörn Dinkla](https://www.dinkla.net) — [github.com/jdinkla](https://github.com/jdinkla).
+The code in this repo was generated with Claude Code, directed and reviewed by
+the author.
+
 ## License
 
-See `LICENSE`.
+Licensed under the [Apache License 2.0](LICENSE). See the [NOTICE](NOTICE) file
+for attribution.

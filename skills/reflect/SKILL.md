@@ -24,11 +24,12 @@ user explicitly asks for it.
 
 ## Step 1 — Prepare the evidence (deterministic)
 
-Run (repo: `/Users/jdinkla/repositories/claude-history`):
+The skill is installed as a symlink into the `claude-history` repo
+(`just install-skill`), so resolve the repo root from the symlink and run:
 
 ```bash
-just --justfile /Users/jdinkla/repositories/claude-history/justfile \
-    reflect-data DAYS "PROJECT" "$OUTDIR"
+REPO="$(cd "$(dirname "$(readlink ~/.claude/skills/reflect)")/.." && pwd)"
+just --justfile "$REPO/justfile" reflect-data DAYS "PROJECT" "$OUTDIR"
 ```
 
 with `OUTDIR` a fresh directory in your scratchpad. This produces:
@@ -101,7 +102,7 @@ Your final message must be ONLY the report markdown, nothing else.
 ## Step 4 — Save and relay
 
 1. Save the critic's report **verbatim** to
-   `/Users/jdinkla/repositories/claude-history/reflections/<YYYY-MM-DD>-<window>.md`
+   `$REPO/reflections/<YYYY-MM-DD>-<window>.md`
    (e.g. `2026-07-05-last-7-days.md`, or `...-myproject.md` with a project
    filter), prefixed with a small HTML comment header recording: window
    (since/until), project filter, critic model, data directory. The
