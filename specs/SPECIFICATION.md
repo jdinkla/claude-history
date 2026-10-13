@@ -66,9 +66,11 @@ Claude Code stores one directory per project (working directory) under:
 ~/.claude/projects/<encoded-cwd>/<session-id>.jsonl
 ```
 
-- `<encoded-cwd>` is the project's absolute path with every `/` replaced by `-`
-  and a leading `-` (because the path starts with `/`). Example:
-  `/Users/jane/code/app` → `-Users-jane-code-app`.
+- `<encoded-cwd>` is the project's absolute path with every character that is
+  not an ASCII letter or digit replaced by `-` (so `/`, `.` and `-` all become
+  `-`). Example: `/Users/jane/my-app/.claude` → `-Users-jane-my-app--claude`.
+  The encoding is **lossy**; the real path is recovered from the events' `cwd`
+  field (see §5.6).
 - Each `<session-id>.jsonl` file is a **JSON Lines** transcript: one JSON object
   ("event") per line.
 
@@ -82,6 +84,8 @@ Each line is parsed as a JSON object. The tool only cares about these fields:
 | `timestamp`  | ISO-8601 timestamp string (may end in `Z`).                          |
 | `sessionId`  | Session identifier (string). Missing → `""`.                         |
 | `message`    | The message object. Missing/falsy → treated as `{}`.                 |
+| `isMeta`     | Truthy on user events that Claude Code injects rather than the human typed (skill bodies, slash-command expansions, messages from other sessions, local-command caveats). Such events are always skipped. |
+| `cwd`        | Working directory at the time of the event. Used only to resolve the project path (§5.6). |
 
 The `message` object contains:
 
@@ -141,7 +145,7 @@ class Entry:
     model: str | None    # assistant model name; always None for user entries
     text: str
     session_id: str
-    project: str         # decoded project path
+    project: str         # project path (resolved from cwd, see §5.6)
 ```
 
 Field order matters for positional construction in `iter_entries`.
@@ -181,13 +185,13 @@ def parse_ts(s):
         return None
 ```
 
-### 5.4 `extract_user_text(message: dict) -> str | None`
+### 5.4 `extract_text(message: dict) -> str | None`
 
-Returns the user's prompt text, or `None` if there is no usable text (e.g. the
-event is a tool_result or meta event).
+Returns the message's text, or `None` if there is no usable text (e.g. the
+event is a tool_result). Used for both user and assistant messages.
 
 ```python
-def extract_user_text(message):
+def extract_text(message):
     content = message.get("content")
     if isinstance(content, str):
         return content.strip() or None
@@ -206,11 +210,44 @@ def extract_user_text(message):
     return None
 ```
 
-### 5.5 `extract_assistant_text(message: dict) -> str | None`
+### 5.5 `extract_user_text` / `extract_assistant_text`
 
-Identical logic to `extract_user_text` but applied to assistant messages.
-Collects only `"text"` blocks (skipping `thinking`, `tool_use`, `tool_result`),
-joins them with `"\n"`, strips, and returns `None` if empty.
+Module-level aliases of `extract_text` (`extract_user_text = extract_text`,
+`extract_assistant_text = extract_text`), kept so callers can name the role.
+Only `"text"` blocks are collected (skipping `thinking`, `tool_use`,
+`tool_result`), joined with `"\n"`, stripped; `None` if empty.
+
+### 5.6 `encode_project(path)` and `resolve_project(project_dir, files)`
+
+```python
+def encode_project(path):
+    return re.sub(r"[^A-Za-z0-9]", "-", path)
+
+def resolve_project(project_dir, files):
+    for jsonl in files:
+        try:
+            f = open(jsonl, "r", encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with f:
+            for line in f:
+                try:
+                    cwd = json.loads(line).get("cwd")
+                except (json.JSONDecodeError, AttributeError):
+                    continue
+                if cwd:
+                    if encode_project(cwd) == project_dir.name:
+                        return cwd
+                    break
+    return decode_project(project_dir.name)
+```
+
+For each file (in the given order), the first event carrying a non-empty `cwd`
+is the session's launch directory. If it re-encodes to the directory name it is
+the exact project path and is returned; otherwise the next file is tried. With
+no match, the lossy `decode_project` result is the fallback. (A later `cwd` in
+a session may differ after a `cd`, which is why only the first one per file is
+considered.)
 
 ---
 
@@ -233,16 +270,17 @@ Algorithm:
 1. If `PROJECTS_DIR` is not a directory, return immediately (yield nothing).
 2. For each `project_dir` in `sorted(PROJECTS_DIR.iterdir())`:
    1. Skip if not a directory.
-   2. `decoded = decode_project(project_dir.name)`.
-   3. If `project_filter` is set **and** it is not a substring of `decoded`
+   2. `files` = the entries of `sorted(project_dir.glob("*.jsonl"))` whose
+      `datetime.fromtimestamp(jsonl.stat().st_mtime, tz=timezone.utc) >= since`
+      (a fast pre-filter — a file last modified before the window cannot
+      contain in-window events). If `files` is empty, skip this project.
+   3. `decoded = resolve_project(project_dir, files)` (§5.6).
+   4. If `project_filter` is set **and** it is not a substring of `decoded`
       **and** it is not a substring of `project_dir.name`, skip this project.
-      (The filter matches against either the decoded path or the raw encoded
+      (The filter matches against either the resolved path or the raw encoded
       directory name.)
-   4. For each `jsonl` in `sorted(project_dir.glob("*.jsonl"))`:
-      1. `mtime = datetime.fromtimestamp(jsonl.stat().st_mtime, tz=timezone.utc)`.
-      2. If `mtime < since`, skip the file entirely (a fast pre-filter — a file
-         last modified before the window cannot contain in-window events).
-      3. Open the file with `open(jsonl, "r", encoding="utf-8", errors="replace")`,
+   5. For each `jsonl` in `files`:
+      1. Open the file with `open(jsonl, "r", encoding="utf-8", errors="replace")`,
          wrapped so that an `OSError` skips the file. For each `line`:
          1. `line = line.strip()`; if empty, skip.
          2. Parse `ev = json.loads(line)`; on `json.JSONDecodeError`, skip the
@@ -253,6 +291,8 @@ Algorithm:
          6. If `until is not None and ts >= until`, skip.
          7. `message = ev.get("message") or {}`.
          8. If `etype == "user"`:
+            - If `ev.get("isMeta")` is truthy, skip (injected, not typed by
+              the human).
             - `text = extract_user_text(message)`; if `None`, skip.
             - If `drop_noise and is_noise(text)`, skip.
             - `yield Entry(ts, "user", None, text, ev.get("sessionId", ""), decoded)`.
@@ -382,7 +422,7 @@ pairs**. Each pair is a dict with this schema:
 {
   "timestamp": "<prompt time, ISO local>" | null,
   "session": "<session id>",
-  "project": "<decoded project path>",
+  "project": "<project path, §5.6>",
   "model": "<assistant model>" | null,
   "prompt": "<user text>" | null,
   "answer": "<assistant text>",
@@ -394,58 +434,76 @@ Algorithm:
 
 ```python
 def build_pairs() -> list[dict]:
-    pairs = []
-    current = None
+    by_session: dict[str, list[Entry]] = {}
     for e in entries:
-        if e.role == "user":
-            if current is not None:
-                pairs.append(current)
-            current = {
-                "timestamp": e.timestamp.astimezone().isoformat(),
-                "session": e.session_id,
-                "project": e.project,
-                "model": None,
-                "prompt": trunc(e.text),
-                "answer": "",
-                "answer_timestamp": None,
-            }
-        else:  # assistant
-            if current is None or current["session"] != e.session_id:
-                # assistant with no preceding user, or a session change
+        by_session.setdefault(e.session_id, []).append(e)
+
+    keyed = []  # (first entry timestamp, pair); answers stay untruncated here
+    for session_entries in by_session.values():
+        current = None
+        for e in session_entries:
+            if e.role == "user":
                 if current is not None:
-                    pairs.append(current)
-                current = {
+                    keyed.append(current)
+                current = (e.timestamp, {
+                    "timestamp": e.timestamp.astimezone().isoformat(),
+                    "session": e.session_id,
+                    "project": e.project,
+                    "model": None,
+                    "prompt": e.text,
+                    "answer": "",
+                    "answer_timestamp": None,
+                })
+            elif current is None:
+                # assistant with no preceding user prompt in this session
+                current = (e.timestamp, {
                     "timestamp": None,
                     "session": e.session_id,
                     "project": e.project,
                     "model": e.model,
                     "prompt": None,
-                    "answer": trunc(e.text),
+                    "answer": e.text,
                     "answer_timestamp": e.timestamp.astimezone().isoformat(),
-                }
+                })
             else:
                 # append to the current pair's answer
-                sep = "\n\n" if current["answer"] else ""
-                current["answer"] = trunc(
-                    current["answer"] + sep + e.text if current["answer"] else e.text
-                )
-                if current["answer_timestamp"] is None:
-                    current["answer_timestamp"] = e.timestamp.astimezone().isoformat()
-                if current["model"] is None:
-                    current["model"] = e.model
-    if current is not None:
-        pairs.append(current)
+                pair = current[1]
+                pair["answer"] = pair["answer"] + "\n\n" + e.text if pair["answer"] else e.text
+                if pair["answer_timestamp"] is None:
+                    pair["answer_timestamp"] = e.timestamp.astimezone().isoformat()
+                if pair["model"] is None:
+                    pair["model"] = e.model
+        if current is not None:
+            keyed.append(current)
+
+    keyed.sort(key=lambda k: k[0])
+    pairs = []
+    for _, pair in keyed:
+        if pair["prompt"] is not None:
+            pair["prompt"] = trunc(pair["prompt"])
+        pair["answer"] = trunc(pair["answer"])
+        pairs.append(pair)
     return pairs
 ```
 
 Notes:
-- A new user entry always starts a new pair (flushing any current one).
-- An assistant entry starts a new (prompt-less) pair if there is no current
-  pair, or if the session id differs from the current pair.
-- Otherwise the assistant text is appended to the current pair's answer,
-  separated by a blank line (`"\n\n"`) when an answer already exists. The whole
-  concatenation is re-run through `trunc`. The first assistant timestamp and
-  first non-null model win.
+- Pairing happens **within each session**: the chronologically sorted entries
+  are grouped by `session_id` (groups in order of first appearance, entries in
+  chronological order). Concurrently running sessions therefore never split
+  each other's pairs.
+- Within a session, a user entry always starts a new pair (flushing any current
+  one); an assistant entry with no current pair starts a prompt-less pair;
+  otherwise the assistant text is appended to the current pair's answer,
+  separated by a blank line (`"\n\n"`) when an answer already exists. The
+  first assistant timestamp and first non-null model win.
+- Pairs are then ordered by the timestamp of their first entry (stable sort, so
+  ties keep session-group order).
+- `trunc` is applied **once**, to the complete prompt and the complete
+  concatenated answer, so the marker's `N chars total` is the true length.
+- Historical note: before 2026-10-13, pairing ran over the globally sorted
+  entries and a session change closed the current pair, so interleaved
+  sessions produced orphaned prompt-less answers; and the answer was re-run
+  through `trunc` on every append, which made `N chars total` wrong.
 
 ### 9.3 `json` — single pretty-printed array
 
@@ -581,8 +639,8 @@ A small, **independent** utility (not imported by `claude_history.py`) that
 renders a flat HTML table from a previously saved `--format json` pairs file. It
 is convenience tooling; re-implementing it is optional.
 
-- **Usage:** `build_table.py [SRC.json] [DST.html]`. `SRC` defaults to
-  `last_8_days_backend_no_noise.json`; `DST` defaults to `SRC` with an `.html`
+- **Usage:** `build_table.py SRC.json [DST.html]`. `SRC` is required (missing
+  → usage line on stderr, exit `2`); `DST` defaults to `SRC` with an `.html`
   suffix.
 - Reads the JSON array, maps each record to `{model, prompt, answer}` (missing
   values → `""`), and embeds it as JSON (`.replace("</", "<\\/")`) into a static

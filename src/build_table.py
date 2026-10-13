@@ -234,12 +234,14 @@ def main(argv: list[str]) -> int:
     """
     Render an HTML table from a JSON pairs file.
 
-    Usage: build_table.py [SRC.json] [DST.html]
-    SRC defaults to last_8_days_backend_no_noise.json
+    Usage: build_table.py SRC.json [DST.html]
     DST defaults to SRC with .html suffix
     """
     # Parse arguments
-    src = argv[0] if len(argv) > 0 else "last_8_days_backend_no_noise.json"
+    if not argv:
+        print("usage: build_table.py SRC.json [DST.html]", file=sys.stderr)
+        return 2
+    src = argv[0]
 
     src_path = Path(src)
     if dst := (argv[1] if len(argv) > 1 else None):

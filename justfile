@@ -28,7 +28,7 @@ days K FORMAT="text":
 [group('history')]
 [doc("Show yesterday's prompts across all projects (noise filtered)")]
 yesterday FORMAT="text":
-    ./src/claude_history.py --since $(date -v-1d +%F) --until $(date +%F) --no-noise --format {{FORMAT}}
+    ./src/claude_history.py --since $(date -v-1d +%F 2>/dev/null || date -d yesterday +%F) --until $(date +%F) --no-noise --format {{FORMAT}}
 
 [group('history')]
 [doc("Prompt statistics for the last DAYS days as a self-contained HTML page (stats.html)")]
@@ -42,8 +42,8 @@ stats DAYS="30":
 [doc("Prepare reflection data for the last DAYS full days (today excluded): full/clean pairs + metrics")]
 reflect-data DAYS="7" PROJECT="" OUTDIR="reflections/data":
     mkdir -p "{{OUTDIR}}"
-    ./src/claude_history.py --since $(date -v-{{DAYS}}d +%F) --until $(date +%F) --project "{{PROJECT}}" --max-chars 0 --format json > "{{OUTDIR}}/full.json"
-    ./src/claude_history.py --since $(date -v-{{DAYS}}d +%F) --until $(date +%F) --project "{{PROJECT}}" --no-noise --max-chars 6000 --format json > "{{OUTDIR}}/clean.json"
+    ./src/claude_history.py --since $(date -v-{{DAYS}}d +%F 2>/dev/null || date -d "{{DAYS}} days ago" +%F) --until $(date +%F) --project "{{PROJECT}}" --max-chars 0 --format json > "{{OUTDIR}}/full.json"
+    ./src/claude_history.py --since $(date -v-{{DAYS}}d +%F 2>/dev/null || date -d "{{DAYS}} days ago" +%F) --until $(date +%F) --project "{{PROJECT}}" --no-noise --max-chars 6000 --format json > "{{OUTDIR}}/clean.json"
     ./src/reflect_metrics.py "{{OUTDIR}}/full.json" > "{{OUTDIR}}/metrics.md"
     @echo "Reflection data written to {{OUTDIR}}"
 

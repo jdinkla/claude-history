@@ -93,10 +93,10 @@ lives in [`skills/reflect/SKILL.md`](skills/reflect/SKILL.md).
 A utility to render a previously saved `--format json` pairs file as a flat interactive HTML table. Usage:
 
 ```bash
-./src/build_table.py [SRC.json] [DST.html]
+./src/build_table.py SRC.json [DST.html]
 ```
 
-Defaults to `last_8_days_backend_no_noise.json` as source and `.html` suffix for destination.
+The destination defaults to the source path with an `.html` suffix.
 
 ### `stats.py`
 

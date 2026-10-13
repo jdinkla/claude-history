@@ -420,7 +420,7 @@ class Entry:
     model: str | None    # assistant model name; always None for user entries
     text: str
     session_id: str
-    project: str         # decoded project path
+    project: str         # project path (resolved from cwd, see resolve_project)
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -441,7 +441,7 @@ def parse_ts(s: str) -> datetime | None:
         return None
 
 
-def extract_user_text(message: dict) -> str | None:
+def extract_text(message: dict) -> str | None:
     content = message.get("content")
     if isinstance(content, str):
         return content.strip() or None
@@ -460,23 +460,34 @@ def extract_user_text(message: dict) -> str | None:
     return None
 
 
-def extract_assistant_text(message: dict) -> str | None:
-    content = message.get("content")
-    if isinstance(content, str):
-        return content.strip() or None
-    if isinstance(content, list):
-        parts = []
-        for block in content:
-            if not isinstance(block, dict):
-                continue
-            if block.get("type") != "text":
-                continue
-            if not block.get("text"):
-                continue
-            parts.append(block["text"])
-        if parts:
-            return "\n".join(parts).strip() or None
-    return None
+extract_user_text = extract_text
+extract_assistant_text = extract_text
+
+
+def encode_project(path: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "-", path)
+
+
+def resolve_project(project_dir: Path, files: list[Path]) -> str:
+    # The directory name encodes the launch cwd lossily ("-" may have been
+    # "/", "." or "-"). The first event carrying a cwd records it verbatim;
+    # accept it only if it re-encodes to the directory name.
+    for jsonl in files:
+        try:
+            f = open(jsonl, "r", encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with f:
+            for line in f:
+                try:
+                    cwd = json.loads(line).get("cwd")
+                except (json.JSONDecodeError, AttributeError):
+                    continue
+                if cwd:
+                    if encode_project(cwd) == project_dir.name:
+                        return cwd
+                    break
+    return decode_project(project_dir.name)
 
 # ---------------------------------------------------------------------------
 # Core extraction
@@ -489,16 +500,18 @@ def iter_entries(since, until, project_filter, drop_noise) -> Iterator[Entry]:
     for project_dir in sorted(PROJECTS_DIR.iterdir()):
         if not project_dir.is_dir():
             continue
-        decoded = decode_project(project_dir.name)
+        files = [
+            jsonl for jsonl in sorted(project_dir.glob("*.jsonl"))
+            if datetime.fromtimestamp(jsonl.stat().st_mtime, tz=timezone.utc) >= since
+        ]
+        if not files:
+            continue
+        decoded = resolve_project(project_dir, files)
         if project_filter is not None:
             if project_filter not in decoded and project_filter not in project_dir.name:
                 continue
 
-        for jsonl in sorted(project_dir.glob("*.jsonl")):
-            mtime = datetime.fromtimestamp(jsonl.stat().st_mtime, tz=timezone.utc)
-            if mtime < since:
-                continue
-
+        for jsonl in files:
             try:
                 f = open(jsonl, "r", encoding="utf-8", errors="replace")
             except OSError:
@@ -529,6 +542,8 @@ def iter_entries(since, until, project_filter, drop_noise) -> Iterator[Entry]:
                     message = ev.get("message") or {}
 
                     if etype == "user":
+                        if ev.get("isMeta"):
+                            continue
                         text = extract_user_text(message)
                         if text is None:
                             continue
@@ -673,47 +688,55 @@ def main(argv):
 
     # Pair builder for json/html
     def build_pairs() -> list[dict]:
-        pairs = []
-        current = None
+        by_session: dict[str, list[Entry]] = {}
         for e in entries:
-            if e.role == "user":
-                if current is not None:
-                    pairs.append(current)
-                current = {
-                    "timestamp": e.timestamp.astimezone().isoformat(),
-                    "session": e.session_id,
-                    "project": e.project,
-                    "model": None,
-                    "prompt": trunc(e.text),
-                    "answer": "",
-                    "answer_timestamp": None,
-                }
-            else:  # assistant
-                if current is None or current["session"] != e.session_id:
-                    # assistant with no preceding user, or a session change
+            by_session.setdefault(e.session_id, []).append(e)
+
+        keyed = []  # (first entry timestamp, pair); answers stay untruncated here
+        for session_entries in by_session.values():
+            current = None
+            for e in session_entries:
+                if e.role == "user":
                     if current is not None:
-                        pairs.append(current)
-                    current = {
+                        keyed.append(current)
+                    current = (e.timestamp, {
+                        "timestamp": e.timestamp.astimezone().isoformat(),
+                        "session": e.session_id,
+                        "project": e.project,
+                        "model": None,
+                        "prompt": e.text,
+                        "answer": "",
+                        "answer_timestamp": None,
+                    })
+                elif current is None:
+                    # assistant with no preceding user prompt in this session
+                    current = (e.timestamp, {
                         "timestamp": None,
                         "session": e.session_id,
                         "project": e.project,
                         "model": e.model,
                         "prompt": None,
-                        "answer": trunc(e.text),
+                        "answer": e.text,
                         "answer_timestamp": e.timestamp.astimezone().isoformat(),
-                    }
+                    })
                 else:
                     # append to the current pair's answer
-                    sep = "\n\n" if current["answer"] else ""
-                    current["answer"] = trunc(
-                        current["answer"] + sep + e.text if current["answer"] else e.text
-                    )
-                    if current["answer_timestamp"] is None:
-                        current["answer_timestamp"] = e.timestamp.astimezone().isoformat()
-                    if current["model"] is None:
-                        current["model"] = e.model
-        if current is not None:
-            pairs.append(current)
+                    pair = current[1]
+                    pair["answer"] = pair["answer"] + "\n\n" + e.text if pair["answer"] else e.text
+                    if pair["answer_timestamp"] is None:
+                        pair["answer_timestamp"] = e.timestamp.astimezone().isoformat()
+                    if pair["model"] is None:
+                        pair["model"] = e.model
+            if current is not None:
+                keyed.append(current)
+
+        keyed.sort(key=lambda k: k[0])
+        pairs = []
+        for _, pair in keyed:
+            if pair["prompt"] is not None:
+                pair["prompt"] = trunc(pair["prompt"])
+            pair["answer"] = trunc(pair["answer"])
+            pairs.append(pair)
         return pairs
 
     # Output

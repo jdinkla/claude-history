@@ -80,6 +80,13 @@ class TestDecodeProject(unittest.TestCase):
         self.assertEqual(result, "/Users/foo")
 
 
+class TestEncodeProject(unittest.TestCase):
+
+    def test_replaces_every_non_alphanumeric(self):
+        self.assertEqual(ch.encode_project("/Users/jane/my-app/.claude"),
+                         "-Users-jane-my-app--claude")
+
+
 class TestParseTs(unittest.TestCase):
 
     def test_z_suffix(self):
@@ -304,6 +311,48 @@ class TestIterEntries(unittest.TestCase):
     def _collect(self, project_filter=None, drop_noise=False, since=None, until=None):
         s = since if since is not None else self.since
         return list(ch.iter_entries(s, until, project_filter, drop_noise))
+
+    # --- meta events and project resolution ---
+
+    def test_meta_user_event_skipped(self):
+        proj = self._make_project("-Users-test-app")
+        ts = make_ts(self.now)
+        self._make_session(proj, "sess1", [
+            {"type": "user", "timestamp": ts, "sessionId": "sess1", "isMeta": True,
+             "message": {"content": "Base directory for this skill: /x"}},
+            {"type": "user", "timestamp": ts, "sessionId": "sess1",
+             "message": {"content": "real prompt"}},
+        ])
+        self.assertEqual([e.text for e in self._collect()], ["real prompt"])
+
+    def test_project_resolved_from_matching_cwd(self):
+        proj = self._make_project("-Users-jane-my-app--claude-wt")
+        ts = make_ts(self.now)
+        self._make_session(proj, "sess1", [
+            {"type": "summary", "summary": "no cwd here"},
+            {"type": "user", "timestamp": ts, "sessionId": "sess1",
+             "cwd": "/Users/jane/my-app/.claude/wt", "message": {"content": "hi"}},
+        ])
+        entries = self._collect()
+        self.assertEqual(entries[0].project, "/Users/jane/my-app/.claude/wt")
+
+    def test_project_filter_matches_resolved_path(self):
+        proj = self._make_project("-Users-jane-my-app")
+        ts = make_ts(self.now)
+        self._make_session(proj, "sess1", [
+            {"type": "user", "timestamp": ts, "sessionId": "sess1",
+             "cwd": "/Users/jane/my-app", "message": {"content": "hi"}},
+        ])
+        self.assertEqual(len(self._collect(project_filter="jane/my-app")), 1)
+
+    def test_project_falls_back_when_cwd_does_not_match(self):
+        proj = self._make_project("-Users-jane-app")
+        ts = make_ts(self.now)
+        self._make_session(proj, "sess1", [
+            {"type": "user", "timestamp": ts, "sessionId": "sess1",
+             "cwd": "/somewhere/else", "message": {"content": "hi"}},
+        ])
+        self.assertEqual(self._collect()[0].project, "/Users/jane/app")
 
     # --- basic happy path ---
 
@@ -741,6 +790,63 @@ class TestMainFormats(unittest.TestCase):
         out, _ = capture_main(["--format", "json", "--since", self.since])
         pairs = json.loads(out)
         self.assertEqual(pairs[0]["model"], "second-model")
+
+    def test_pairing_concurrent_sessions_stay_together(self):
+        """Interleaved sessions keep each prompt with its own answer."""
+        t = [make_ts(self.now - timedelta(minutes=5 - i)) for i in range(4)]
+        proj = self._make_project("-Users-test-app")
+        write_jsonl(proj / "a.jsonl", [
+            {"type": "user", "timestamp": t[0], "sessionId": "A",
+             "message": {"content": "Question A"}},
+            {"type": "assistant", "timestamp": t[2], "sessionId": "A",
+             "message": {"content": "Answer A", "model": "m"}},
+        ])
+        write_jsonl(proj / "b.jsonl", [
+            {"type": "user", "timestamp": t[1], "sessionId": "B",
+             "message": {"content": "Question B"}},
+            {"type": "assistant", "timestamp": t[3], "sessionId": "B",
+             "message": {"content": "Answer B", "model": "m"}},
+        ])
+        out, _ = capture_main(["--format", "json", "--since", self.since])
+        pairs = json.loads(out)
+        self.assertEqual(
+            [(p["prompt"], p["answer"]) for p in pairs],
+            [("Question A", "Answer A"), ("Question B", "Answer B")],
+        )
+
+    def test_pairing_orders_pairs_chronologically_across_sessions(self):
+        """Pairs are sorted by their first entry, regardless of session order."""
+        t = [make_ts(self.now - timedelta(minutes=5 - i)) for i in range(3)]
+        proj = self._make_project("-Users-test-app")
+        write_jsonl(proj / "a.jsonl", [
+            {"type": "user", "timestamp": t[0], "sessionId": "A",
+             "message": {"content": "A1"}},
+            {"type": "user", "timestamp": t[2], "sessionId": "A",
+             "message": {"content": "A2"}},
+        ])
+        write_jsonl(proj / "b.jsonl", [
+            {"type": "assistant", "timestamp": t[1], "sessionId": "B",
+             "message": {"content": "B answer", "model": "m"}},
+        ])
+        out, _ = capture_main(["--format", "json", "--since", self.since])
+        pairs = json.loads(out)
+        self.assertEqual([p["prompt"] for p in pairs], ["A1", None, "A2"])
+
+    def test_trunc_paired_answer_reports_true_total(self):
+        """A multi-part answer is truncated once; the marker counts the full text."""
+        t = [make_ts(self.now - timedelta(minutes=3 - i)) for i in range(3)]
+        proj = self._make_project("-Users-test-app")
+        write_jsonl(proj / "sess.jsonl", [
+            {"type": "user", "timestamp": t[0], "sessionId": "s",
+             "message": {"content": "Q"}},
+            {"type": "assistant", "timestamp": t[1], "sessionId": "s",
+             "message": {"content": "A" * 30, "model": "m"}},
+            {"type": "assistant", "timestamp": t[2], "sessionId": "s",
+             "message": {"content": "B" * 30, "model": "m"}},
+        ])
+        out, _ = capture_main(["--format", "json", "--max-chars", "10", "--since", self.since])
+        answer = json.loads(out)[0]["answer"]
+        self.assertEqual(answer, "A" * 10 + "\n… [truncated, 62 chars total]")
 
     # --- truncation ---
 

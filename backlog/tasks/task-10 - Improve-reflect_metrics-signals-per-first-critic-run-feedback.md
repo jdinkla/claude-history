@@ -4,6 +4,7 @@ title: Improve reflect_metrics signals per first critic run feedback
 status: To Do
 assignee: []
 created_date: '2026-07-04 23:07'
+updated_date: '2026-10-13 16:10'
 labels:
   - feature
   - reflection
@@ -29,3 +30,9 @@ Purpose: the metrics exist so the critic argues from observable events; more fai
 - [ ] #2 At least one additional correction signal beyond the start-anchored lexicon, reported separately with its own precision caveat in Method notes
 - [ ] #3 Tests cover the new signal logic and the suite stays green
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-13 (TASK-13): item 1's root cause was `isMeta` user events (injected skill/command bodies) being extracted as prompts. claude_history.py now skips them, and the max first-prompt length on 14 days of real data dropped from 4653 to 130 chars. reflect_metrics already measures the first *human-classified* prompt, so AC #1 may already hold; verify on a fresh reflect-data run before closing it. Item 2 (extra correction signals) is untouched.
+<!-- SECTION:NOTES:END -->
