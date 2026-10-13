@@ -122,6 +122,8 @@ def compute_metrics(pairs: list[dict], max_exemplars: int = 10) -> dict:
     human_lengths: list[int] = []
     corrections: list[dict] = []
     interruptions: list[dict] = []
+    post_interruption: list[dict] = []
+    awaiting_followup: set[str] = set()  # sessions interrupted with no human reply yet
     steering: list[dict] = []
     assistant_questions: list[dict] = []
     human_followups = 0
@@ -142,13 +144,21 @@ def compute_metrics(pairs: list[dict], max_exemplars: int = 10) -> dict:
         kind = classify_prompt(prompt)
         prompt_kinds[kind] += 1
 
-        if prompt and INTERRUPTION_RE.search(prompt):
+        interrupted = bool(prompt and INTERRUPTION_RE.search(prompt))
+        if interrupted:
             stats.interruptions += 1
             interruptions.append(exemplar(pair, prompt))
+            if kind != "human":
+                awaiting_followup.add(sid)
 
         if kind == "slash_command":
             slash_commands[slash_command_name(prompt) or "?"] += 1
         elif kind == "human":
+            # The first thing typed after hitting Escape — inline after the
+            # marker, or the session's next human prompt.
+            if interrupted or sid in awaiting_followup:
+                awaiting_followup.discard(sid)
+                post_interruption.append(exemplar(pair, INTERRUPTION_RE.sub(" ", prompt)))
             stats.human_prompts += 1
             human_lengths.append(len(prompt))
             if stats.human_prompts == 1:
@@ -225,6 +235,10 @@ def compute_metrics(pairs: list[dict], max_exemplars: int = 10) -> dict:
             "interruptions": {
                 "count": len(interruptions),
                 "exemplars": interruptions[:max_exemplars],
+            },
+            "post_interruption_followups": {
+                "count": len(post_interruption),
+                "exemplars": post_interruption[:max_exemplars],
             },
             "steering_followups": {
                 "count": len(steering),
@@ -328,6 +342,14 @@ def render_markdown(m: dict) -> str:
     out.extend(render_exemplars(sig["interruptions"]["exemplars"]) or ["(none)"])
     out.append("")
 
+    pi = sig["post_interruption_followups"]
+    out.append(f"## Post-interruption follow-ups ({pi['count']})")
+    out.append("")
+    out.append("The first human prompt after an interruption — what the user typed instead of letting Claude continue.")
+    out.append("")
+    out.extend(render_exemplars(pi["exemplars"]) or ["(none)"])
+    out.append("")
+
     st = sig["steering_followups"]
     ratio = f" ({round(100 * st['count'] / st['of_followups'])}% of follow-ups)" if st["of_followups"] else ""
     out.append(f"## Short steering follow-ups ({st['count']}{ratio})")
@@ -357,7 +379,10 @@ def render_markdown(m: dict) -> str:
     out.append("## Method notes")
     out.append("")
     out.append("All signals are lexical heuristics over prompt/answer text; counts are lower/upper bounds, not truth. "
-               "Corrections are start-anchored pushback phrases; steering is a length threshold; "
+               "Corrections are start-anchored pushback phrases (high precision, low recall); "
+               "post-interruption follow-ups are positional, not lexical (medium precision — "
+               "a follow-up can be a plain \"yes, continue\"; they catch redirections the lexicon misses); "
+               "steering is a length threshold; "
                "assistant questions match a trailing `?`. Use exemplars to check each signal before trusting it.")
     out.append("")
     return "\n".join(out)

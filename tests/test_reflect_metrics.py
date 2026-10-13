@@ -199,6 +199,49 @@ class TestComputeMetrics(unittest.TestCase):
         self.assertEqual(m["signals"]["corrections"]["count"], 15)  # opening prompts count too
         self.assertEqual(len(m["signals"]["corrections"]["exemplars"]), 5)
 
+    def test_first_prompt_skips_machine_pairs(self):
+        pairs = [
+            make_pair("<command-name>/clear</command-name>", timestamp="2026-07-01T10:00:00+02:00"),
+            make_pair("<local-command-stdout>" + "x" * 5000 + "</local-command-stdout>",
+                      timestamp="2026-07-01T10:01:00+02:00"),
+            make_pair("fix the parser", timestamp="2026-07-01T10:02:00+02:00"),
+        ]
+        m = rm.compute_metrics(pairs)
+        self.assertEqual(m["sessions"][0]["first_prompt_chars"], len("fix the parser"))
+        self.assertEqual(m["prompt_length"]["first_prompt"]["max"], len("fix the parser"))
+
+    def test_post_interruption_next_human_prompt(self):
+        pairs = [
+            make_pair("build the parser", timestamp="2026-07-01T10:00:00+02:00"),
+            make_pair("[Request interrupted by user for tool use]", timestamp="2026-07-01T10:01:00+02:00"),
+            make_pair("<command-name>/context</command-name>", timestamp="2026-07-01T10:02:00+02:00"),
+            make_pair("use the ini module", timestamp="2026-07-01T10:03:00+02:00"),
+            make_pair("now add tests", timestamp="2026-07-01T10:04:00+02:00"),
+        ]
+        pi = rm.compute_metrics(pairs)["signals"]["post_interruption_followups"]
+        self.assertEqual(pi["count"], 1)
+        self.assertEqual(pi["exemplars"][0]["text"], "use the ini module")
+
+    def test_post_interruption_inline_text(self):
+        pairs = [make_pair("[Request interrupted by user]use the ini module")]
+        pi = rm.compute_metrics(pairs)["signals"]["post_interruption_followups"]
+        self.assertEqual(pi["count"], 1)
+        self.assertEqual(pi["exemplars"][0]["text"], "use the ini module")
+
+    def test_post_interruption_is_per_session(self):
+        pairs = [
+            make_pair("[Request interrupted by user]", session="aaaaaaaa-1",
+                      timestamp="2026-07-01T10:00:00+02:00"),
+            make_pair("unrelated work", session="bbbbbbbb-2",
+                      timestamp="2026-07-01T10:01:00+02:00"),
+        ]
+        pi = rm.compute_metrics(pairs)["signals"]["post_interruption_followups"]
+        self.assertEqual(pi["count"], 0)
+
+    def test_post_interruption_none_without_interruption(self):
+        pi = self.metrics["signals"]["post_interruption_followups"]
+        self.assertEqual(pi["count"], 0)
+
     def test_empty_input(self):
         m = rm.compute_metrics([])
         self.assertEqual(m["totals"]["pairs"], 0)
@@ -220,6 +263,7 @@ class TestRenderMarkdown(unittest.TestCase):
         self.assertIn("no, the ini format", md)
         self.assertIn("`claude-fable-5`: 4", md)
         self.assertIn("## Method notes", md)
+        self.assertIn("## Post-interruption follow-ups (0)", md)
 
     def test_empty(self):
         md = rm.render_markdown(rm.compute_metrics([]))

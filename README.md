@@ -63,7 +63,7 @@ Methodological ground rules:
    relays the critique.
 2. **Evidence before opinion.** A deterministic metrics layer
    (`reflect_metrics.py`) counts observable events — corrections,
-   interruptions, short steering follow-ups, sessions where Claude had to ask
+   interruptions and what was typed right after them, short steering follow-ups, sessions where Claude had to ask
    back — and every claim in the critique must cite session + timestamp.
 3. **The window excludes today**, so a running session never judges its own
    transcript.
