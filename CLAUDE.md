@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 CLI tools that extract and analyze the prompt/answer history of Claude Code sessions from the transcript files under `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`. Two layers:
 
 1. **Extraction** — `claude_history.py` filters sessions by date/project and renders text, Markdown, JSONL, JSON pairs, or a self-contained interactive HTML page. `build_table.py` renders a saved pairs JSON as a flat HTML table. `stats.py` aggregates pairs JSON into usage statistics (per project/day/weekday/hour, models, sessions) as JSON or an HTML page (spec: `specs/STATISTICS.md`).
+   `check_transcripts.py` (`just smoke`) checks the extraction's assumptions against the user's real transcripts; extend its `KNOWN_*` baselines only after reviewing a `new-fields` WARN.
 2. **Reflection** — `reflect_metrics.py` + the `/reflect` skill (`skills/reflect/SKILL.md`) implement Schön-style reflection-on-action over the user's own collaboration transcripts (see README "Reflection workflow").
 
 ## Hard constraints
@@ -20,6 +21,7 @@ CLI tools that extract and analyze the prompt/answer history of Claude Code sess
 
 ```bash
 just test                          # full suite (python3 -m unittest -v)
+just smoke 14                      # check extraction assumptions against the real ~/.claude/projects (exit 1 on FAIL)
 just test test_claude_history.TestParseDate.test_bare_date_is_local_midnight  # single test
 just prompts 8 backend             # last 8 days of one project as JSON pairs
 just days 3 md                     # last 3 days, all projects

@@ -112,6 +112,30 @@ just stats 30        # last 30 days -> stats.html (gitignored)
 ./src/claude_history.py --days 30 --max-chars 0 --format json | ./src/stats.py   # raw JSON aggregates
 ```
 
+### `check_transcripts.py` (`just smoke`)
+
+The unit tests run against fixtures, and fixtures only encode what we believe
+Claude Code writes. Claude Code's transcript format is undocumented and changes
+between releases, so this script checks the extraction against **your real
+transcripts** instead:
+
+```bash
+just smoke        # last 14 days
+just smoke 60     # last 60 days
+```
+
+It prints one line per check and exits `1` if any check FAILs:
+
+- `project-paths`: every session's project path equals the `cwd` its transcript recorded
+- `orphan-answers`: no answer has lost its prompt (e.g. through interleaved sessions)
+- `content-shapes`: every user message has a content shape the extraction handles
+- `machine-prompts`: no extracted prompt is an injected (`isMeta`) or machine-originated (`origin.kind` ≠ `human`) event
+- `new-fields` (WARN only): event types or user-event keys outside the known baseline in the script
+
+Run it after a Claude Code update and before trusting a `/reflect` report. The
+output contains counts, session-id prefixes and field names, never prompt or
+answer text. It is not part of `just test`, which stays hermetic.
+
 ### `justfile`
 
 All workflow shortcuts (history dumps, tests, reflection data, skill install)

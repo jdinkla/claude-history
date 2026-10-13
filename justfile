@@ -13,6 +13,11 @@ default:
 test *ARGS="discover -s tests -v":
     PYTHONPATH=tests python3 -m unittest {{ARGS}}
 
+[group('dev')]
+[doc("Check extraction assumptions against your real transcripts of the last DAYS days (prints no prompt text)")]
+smoke DAYS="14":
+    ./src/check_transcripts.py --days {{DAYS}}
+
 # --- History ---
 
 [group('history')]
