@@ -138,6 +138,8 @@ class TestIsNoise(unittest.TestCase):
 
     def test_context_usage(self):
         self.assertTrue(ch.is_noise("## Context Usage\n\nsome stats"))
+        self.assertTrue(ch.is_noise("  <task-notification>\n<task-id>b9cf</task-id>\n<status>completed</status>\n<summary>Build finished</summary>\n</task-notification>\n"))
+        self.assertFalse(ch.is_noise("<task-notification>\n<task-id>b9cf</task-id>\n<status>completed</status>\n<summary>Build finished</summary>\n</task-notification>\nnow deploy it"))
         self.assertTrue(ch.is_noise("  ##  Context Usage blah blah"))
 
     def test_real_prompt_not_noise(self):

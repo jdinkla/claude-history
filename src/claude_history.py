@@ -34,6 +34,7 @@ NOISE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\s*(?:<command-(?:name|message|args)>.*?</command-(?:name|message|args)>\s*)+", re.DOTALL),
     re.compile(r"\s*\[Request interrupted by user.*?\]\s*", re.DOTALL),
     re.compile(r"\s*##\s*Context Usage\b.*", re.DOTALL),
+    re.compile(r"\s*<task-notification>.*?</task-notification>\s*", re.DOTALL),
 ]
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
@@ -616,7 +617,7 @@ def main(argv):
         "--no-noise",
         action="store_true",
         default=False,
-        help="Drop machine-generated prompts (slash-command tags, local-command stdout/caveat, /context dumps, interruption markers).",
+        help="Drop machine-generated prompts (slash-command tags, local-command stdout/caveat, /context dumps, interruption markers, background-task notifications).",
     )
     ap.add_argument(
         "--max-chars",

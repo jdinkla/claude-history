@@ -129,7 +129,7 @@ It prints one line per check and exits `1` if any check FAILs:
 - `project-paths`: every session's project path equals the `cwd` its transcript recorded
 - `orphan-answers`: no answer has lost its prompt (e.g. through interleaved sessions)
 - `content-shapes`: every user message has a content shape the extraction handles
-- `machine-prompts`: no extracted prompt is an injected (`isMeta`) or machine-originated (`origin.kind` ≠ `human`) event
+- `machine-prompts`: no prompt counted as human is an injected (`isMeta`) or machine-originated (`origin.kind` ≠ `human`) event
 - `new-fields` (WARN only): event types or user-event keys outside the known baseline in the script
 
 Run it after a Claude Code update and before trusting a `/reflect` report. The

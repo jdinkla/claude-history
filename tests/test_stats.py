@@ -54,7 +54,8 @@ class TestClassificationCounts(unittest.TestCase):
         self.assertEqual(s["totals"]["human"], 1)
         self.assertEqual(s["totals"]["kinds"], {
             "human": 1, "slash_command": 1, "interruption": 1,
-            "local_command": 0, "context_dump": 0, "assistant_only": 1,
+            "local_command": 0, "context_dump": 0, "task_notification": 0,
+            "assistant_only": 1,
         })
         self.assertEqual(s["by_model"], [
             {"model": "m1", "pairs": 3}, {"model": "(none)", "pairs": 1},
@@ -159,7 +160,8 @@ class TestEmptyInput(unittest.TestCase):
         self.assertEqual(s["totals"], {
             "pairs": 0, "human": 0,
             "kinds": {"human": 0, "slash_command": 0, "interruption": 0,
-                      "local_command": 0, "context_dump": 0, "assistant_only": 0},
+                      "local_command": 0, "context_dump": 0, "task_notification": 0,
+                      "assistant_only": 0},
             "sessions": 0, "projects": 0, "active_days": 0,
         })
         self.assertEqual(s["by_project"], [])

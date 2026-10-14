@@ -72,6 +72,12 @@ class TestClassifyPrompt(unittest.TestCase):
         text = "[Request interrupted by user]no, use the other file"
         self.assertEqual(rm.classify_prompt(text), "human")
 
+    def test_task_notification(self):
+        self.assertEqual(rm.classify_prompt("<task-notification>\n<task-id>b9cf</task-id>\n<status>completed</status>\n<summary>Build finished</summary>\n</task-notification>"), "task_notification")
+
+    def test_task_notification_followed_by_text_is_human(self):
+        self.assertEqual(rm.classify_prompt("<task-notification>\n<task-id>b9cf</task-id>\n<status>completed</status>\n<summary>Build finished</summary>\n</task-notification>\nnow deploy it"), "human")
+
     def test_context_dump(self):
         self.assertEqual(rm.classify_prompt("## Context Usage\nfoo bar"), "context_dump")
 

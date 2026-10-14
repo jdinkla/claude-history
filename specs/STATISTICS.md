@@ -64,6 +64,7 @@ Each pair's `prompt` is classified into exactly one kind:
 | `interruption` | `[Request interrupted by user …]` marker |
 | `local_command` | `<local-command-stdout/caveat>` wrapper |
 | `context_dump` | `## Context Usage …` dump |
+| `task_notification` | `<task-notification>…</task-notification>` block injected when a background task finishes |
 | `assistant_only` | pair has `prompt: null` (assistant text with no preceding user prompt) |
 
 Classification is **imported, not duplicated**:
@@ -103,7 +104,8 @@ to touch exactly those two places.
     "human": 0,               // pairs classified `human`
     "kinds": {                // every kind always present, zero-filled
       "human": 0, "slash_command": 0, "interruption": 0,
-      "local_command": 0, "context_dump": 0, "assistant_only": 0
+      "local_command": 0, "context_dump": 0, "task_notification": 0,
+      "assistant_only": 0
     },
     "sessions": 0,            // distinct session ids
     "projects": 0,            // distinct project paths

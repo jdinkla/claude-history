@@ -120,13 +120,16 @@ NOISE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\s*(?:<command-(?:name|message|args)>.*?</command-(?:name|message|args)>\s*)+", re.DOTALL),
     re.compile(r"\s*\[Request interrupted by user.*?\]\s*", re.DOTALL),
     re.compile(r"\s*##\s*Context Usage\b.*", re.DOTALL),
+    re.compile(r"\s*<task-notification>.*?</task-notification>\s*", re.DOTALL),
 ]
 ```
 
 These correspond to: local slash-command caveat blocks, local-command stdout
 dumps, slash-command tag wrappers (`<command-name>` / `<command-message>` /
-`<command-args>`), user-interruption markers, and `/context`-style "Context
-Usage" dumps.
+`<command-args>`), user-interruption markers, `/context`-style "Context
+Usage" dumps, and the `<task-notification>` blocks Claude Code injects when a
+background task finishes (they trigger an assistant reply, so they are noise
+rather than skipped events like `isMeta`).
 
 ---
 
@@ -336,7 +339,7 @@ Built with `argparse.ArgumentParser(description=__doc__)`.
 | `--since`      | `parse_date`  | —       | `Show entries on/after this date (YYYY-MM-DD or ISO).` |
 | `--until`      | `parse_date`  | `None`  | `Show entries before this date (exclusive).` |
 | `--project`    | string        | `None`  | `Substring filter on the project path.` |
-| `--no-noise`   | `store_true`  | `False` | `Drop machine-generated prompts (slash-command tags, local-command stdout/caveat, /context dumps, interruption markers).` |
+| `--no-noise`   | `store_true`  | `False` | `Drop machine-generated prompts (slash-command tags, local-command stdout/caveat, /context dumps, interruption markers, background-task notifications).` |
 | `--max-chars`  | `int`         | `2000`  | `Truncate each message to this many characters (0 = no limit).` |
 | `--format`     | choice        | `text`  | one of `text`, `md`, `jsonl`, `json`, `html` |
 | `--json`       | `store_true`  | `False` | `Shortcut for --format json (emit a single JSON array).` |

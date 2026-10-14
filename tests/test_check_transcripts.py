@@ -139,6 +139,14 @@ class TestChecks(CheckTestCase):
         self.assertEqual(status, "FAIL")
         self.assertIn("origin task-notification 1", detail)
 
+    def test_machine_origin_classified_as_noise_passes(self):
+        self.write("-Users-jane-my-app", "s1", [
+            user("s1", "<task-notification><status>completed</status></task-notification>",
+                 cwd="/Users/jane/my-app", origin={"kind": "task-notification"}),
+            assistant("s1", "The build finished."),
+        ])
+        self.assertEqual(self.rows()["machine-prompts"][0], "PASS")
+
     def test_meta_event_skipped_by_extraction_passes(self):
         self.write("-Users-jane-my-app", "s1", [
             user("s1", "skill body", cwd="/Users/jane/my-app", isMeta=True),

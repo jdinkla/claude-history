@@ -8,7 +8,8 @@
 Runs the real extraction over a recent window and scans the same raw
 transcript files for facts the extraction relies on: project paths match the
 recorded cwd, concurrent sessions don't orphan answers, user content has a
-handled shape, and no machine-originated prompt passes as human. It also
+handled shape, and no injected or machine-originated prompt is counted as
+human. It also
 reports event types and user-event keys outside a known baseline, so
 transcript-format drift after a Claude Code update gets noticed.
 
@@ -28,6 +29,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 import claude_history as ch
+from reflect_metrics import classify_prompt
 
 # Baseline observed 2026-10-13. Extend it after reviewing a WARN line.
 KNOWN_EVENT_TYPES = {
@@ -167,12 +169,15 @@ def run_checks(days: int) -> list[tuple[str, str, str]]:
                  + (f" (sessions: {prefixes(bad)})" if bad else "")))
 
     # Compare the extraction's output with the raw flags rather than
-    # re-implementing its skip rules, so a regression shows up here.
+    # re-implementing its rules, so a regression shows up here. Machine text
+    # that is extracted but classified as noise is fine; counted as human, not.
     leaked = [(p["session"], raw["machine"][(p["session"], p["prompt"])])
-              for p in pairs if (p["session"], p["prompt"]) in raw["machine"]]
+              for p in pairs
+              if (p["session"], p["prompt"]) in raw["machine"]
+              and classify_prompt(p["prompt"]) == "human"]
     flags = ", ".join(f"{k} {n}" for k, n in Counter(f for _, f in leaked).most_common())
     rows.append(("FAIL" if leaked else "PASS", "machine-prompts",
-                 f"{len(leaked)} extracted prompts flagged as not typed by a human"
+                 f"{len(leaked)} prompts counted as human that the transcript marks as machine-made"
                  + (f" ({flags}; sessions: {prefixes(s for s, _ in leaked)})" if leaked else "")))
 
     new = []

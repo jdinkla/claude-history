@@ -36,6 +36,7 @@ NOISE_KINDS: list[tuple[str, re.Pattern[str]]] = [
     ("interruption", re.compile(r"\[Request interrupted by user.*?\]", re.DOTALL)),
     ("local_command", re.compile(r"<local-command-(?:stdout|caveat)>.*?</local-command-(?:stdout|caveat)>", re.DOTALL)),
     ("context_dump", re.compile(r"##\s*Context Usage\b.*", re.DOTALL)),
+    ("task_notification", re.compile(r"<task-notification>.*?</task-notification>", re.DOTALL)),
 ]
 
 INTERRUPTION_RE = re.compile(r"\[Request interrupted by user.*?\]", re.DOTALL)
