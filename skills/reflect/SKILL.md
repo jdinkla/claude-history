@@ -67,7 +67,7 @@ corrections, delegation choices — not the quality of Claude's answers.
 Evidence files (read all three; metrics first):
 - {OUTDIR}/metrics.md   — deterministic counts + exemplars (lexical heuristics; verify against transcripts before leaning on any signal)
 - {OUTDIR}/clean.json   — human prompt/answer pairs, chronological, fields: timestamp, session, project, model, prompt, answer
-- {OUTDIR}/full.json    — same window including machine-generated prompts (slash commands, interruptions), for context around episodes
+- {OUTDIR}/full.json    — same window including machine-generated prompts (interruptions, task notifications), for context around episodes
 
 Method — evidence before opinion:
 1. Every claim must cite at least one concrete piece of evidence: session id

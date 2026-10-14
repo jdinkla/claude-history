@@ -24,8 +24,8 @@ from datetime import date, datetime, timedelta
 from reflect_metrics import classify_prompt
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-KINDS = ["human", "slash_command", "interruption", "local_command",
-         "context_dump", "task_notification", "assistant_only"]
+KINDS = ["human", "interruption", "local_command", "context_dump",
+         "task_notification", "assistant_only"]
 NO_MODEL = "(none)"
 
 # ---------------------------------------------------------------------------

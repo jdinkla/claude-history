@@ -32,7 +32,6 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 NOISE_KINDS: list[tuple[str, re.Pattern[str]]] = [
-    ("slash_command", re.compile(r"<command-(?:name|message|args)>.*?</command-(?:name|message|args)>", re.DOTALL)),
     ("interruption", re.compile(r"\[Request interrupted by user.*?\]", re.DOTALL)),
     ("local_command", re.compile(r"<local-command-(?:stdout|caveat)>.*?</local-command-(?:stdout|caveat)>", re.DOTALL)),
     ("context_dump", re.compile(r"##\s*Context Usage\b.*", re.DOTALL)),
@@ -41,6 +40,7 @@ NOISE_KINDS: list[tuple[str, re.Pattern[str]]] = [
 
 INTERRUPTION_RE = re.compile(r"\[Request interrupted by user.*?\]", re.DOTALL)
 COMMAND_NAME_RE = re.compile(r"<command-name>\s*(.*?)\s*</command-name>", re.DOTALL)
+COMMAND_ARGS_RE = re.compile(r"<command-args>\s*(.*?)\s*</command-args>", re.DOTALL)
 
 # Correction lexicon: start-anchored, high-precision heuristics for prompts
 # that push back on the previous answer. English + German.
@@ -84,6 +84,16 @@ def is_correction(text: str) -> bool:
 def slash_command_name(text: str) -> str | None:
     m = COMMAND_NAME_RE.search(text)
     return m.group(1) if m else None
+
+
+def prompt_text(text: str) -> str:
+    """What the user typed: a slash-command wrapper becomes `/name args`."""
+    name = slash_command_name(text)
+    if name is None:
+        return text
+    m = COMMAND_ARGS_RE.search(text)
+    args = m.group(1) if m else ""
+    return f"{name} {args}" if args else name
 
 
 # ---------------------------------------------------------------------------
@@ -152,9 +162,10 @@ def compute_metrics(pairs: list[dict], max_exemplars: int = 10) -> dict:
             if kind != "human":
                 awaiting_followup.add(sid)
 
-        if kind == "slash_command":
-            slash_commands[slash_command_name(prompt) or "?"] += 1
-        elif kind == "human":
+        if kind == "human":
+            if (name := slash_command_name(prompt)) is not None:
+                slash_commands[name] += 1
+            prompt = prompt_text(prompt)
             # The first thing typed after hitting Escape — inline after the
             # marker, or the session's next human prompt.
             if interrupted or sid in awaiting_followup:

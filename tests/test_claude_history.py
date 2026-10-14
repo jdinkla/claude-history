@@ -123,12 +123,13 @@ class TestIsNoise(unittest.TestCase):
     def test_local_command_stdout(self):
         self.assertTrue(ch.is_noise("<local-command-stdout>output here</local-command-stdout>"))
 
-    def test_command_tags(self):
-        self.assertTrue(ch.is_noise("<command-name>foo</command-name>"))
-        self.assertTrue(ch.is_noise(
+    def test_command_tags_are_not_noise(self):
+        # The user typed the slash command; <command-args> is their own text.
+        self.assertFalse(ch.is_noise("<command-name>foo</command-name>"))
+        self.assertFalse(ch.is_noise(
             "<command-name>foo</command-name><command-message>bar</command-message>"
         ))
-        self.assertTrue(ch.is_noise(
+        self.assertFalse(ch.is_noise(
             "<command-name>a</command-name>\n<command-args>b</command-args>"
         ))
 
@@ -1076,6 +1077,26 @@ class TestMainNoNoise(unittest.TestCase):
         lines = [json.loads(l) for l in out.strip().split("\n") if l]
         self.assertEqual(len(lines), 1)
         self.assertEqual(lines[0]["text"], "real prompt")
+
+    def test_no_noise_keeps_slash_commands(self):
+        proj = self.projects / "-Users-test"
+        proj.mkdir()
+        ts = make_ts(self.now)
+        skill = ("<command-message>site-brief</command-message>\n"
+                 "<command-name>/site-brief</command-name>\n"
+                 "<command-args>a modern site</command-args>")
+        write_jsonl(proj / "s.jsonl", [
+            {"type": "user", "timestamp": ts, "sessionId": "s",
+             "message": {"content": skill}},
+            {"type": "assistant", "timestamp": ts, "sessionId": "s",
+             "message": {"model": "m", "content": [{"type": "text", "text": "brief written"}]}},
+        ])
+        out, _ = capture_main(["--format", "json", "--no-noise", "--since", self.since])
+        pairs = json.loads(out)
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0]["prompt"], skill)
+        self.assertIsNotNone(pairs[0]["timestamp"])
+        self.assertEqual(pairs[0]["answer"], "brief written")
 
 
 if __name__ == "__main__":

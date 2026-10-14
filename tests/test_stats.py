@@ -51,11 +51,11 @@ class TestClassificationCounts(unittest.TestCase):
         ]
         s = stats.compute_stats(pairs)
         self.assertEqual(s["totals"]["pairs"], 4)
-        self.assertEqual(s["totals"]["human"], 1)
+        # a typed slash command counts as human
+        self.assertEqual(s["totals"]["human"], 2)
         self.assertEqual(s["totals"]["kinds"], {
-            "human": 1, "slash_command": 1, "interruption": 1,
-            "local_command": 0, "context_dump": 0, "task_notification": 0,
-            "assistant_only": 1,
+            "human": 2, "interruption": 1, "local_command": 0,
+            "context_dump": 0, "task_notification": 0, "assistant_only": 1,
         })
         self.assertEqual(s["by_model"], [
             {"model": "m1", "pairs": 3}, {"model": "(none)", "pairs": 1},
@@ -65,7 +65,7 @@ class TestClassificationCounts(unittest.TestCase):
         pairs = [
             pair(MON_9, project="/p/alpha", session="s1"),
             pair(MON_10, project="/p/alpha", session="s2",
-                 prompt="<command-name>/x</command-name>"),
+                 prompt="[Request interrupted by user]"),
             pair(THU_22, project="/p/beta", session="s3"),
         ]
         s = stats.compute_stats(pairs)
@@ -125,7 +125,7 @@ class TestSessions(unittest.TestCase):
             pair(MON_9, session="a", answer_ts=MON_10),   # 50 min span
             pair(MON_10, session="a"),
             pair(THU_22, session="b",
-                 prompt="<command-name>/x</command-name>"),
+                 prompt="[Request interrupted by user]"),
         ]
         s = stats.compute_stats(pairs)
         sess = s["sessions"]
@@ -159,9 +159,8 @@ class TestEmptyInput(unittest.TestCase):
         self.assertEqual(s["range"], {"first": None, "last": None})
         self.assertEqual(s["totals"], {
             "pairs": 0, "human": 0,
-            "kinds": {"human": 0, "slash_command": 0, "interruption": 0,
-                      "local_command": 0, "context_dump": 0, "task_notification": 0,
-                      "assistant_only": 0},
+            "kinds": {"human": 0, "interruption": 0, "local_command": 0,
+                      "context_dump": 0, "task_notification": 0, "assistant_only": 0},
             "sessions": 0, "projects": 0, "active_days": 0,
         })
         self.assertEqual(s["by_project"], [])

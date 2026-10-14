@@ -31,7 +31,6 @@ PROJECTS_DIR = Path.home() / ".claude" / "projects"
 NOISE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\s*<local-command-caveat>.*?</local-command-caveat>\s*", re.DOTALL),
     re.compile(r"\s*<local-command-stdout>.*?</local-command-stdout>\s*", re.DOTALL),
-    re.compile(r"\s*(?:<command-(?:name|message|args)>.*?</command-(?:name|message|args)>\s*)+", re.DOTALL),
     re.compile(r"\s*\[Request interrupted by user.*?\]\s*", re.DOTALL),
     re.compile(r"\s*##\s*Context Usage\b.*", re.DOTALL),
     re.compile(r"\s*<task-notification>.*?</task-notification>\s*", re.DOTALL),
@@ -617,7 +616,7 @@ def main(argv):
         "--no-noise",
         action="store_true",
         default=False,
-        help="Drop machine-generated prompts (slash-command tags, local-command stdout/caveat, /context dumps, interruption markers, background-task notifications).",
+        help="Drop machine-generated prompts (local-command stdout/caveat, /context dumps, interruption markers, background-task notifications). Slash commands are kept: the user typed them.",
     )
     ap.add_argument(
         "--max-chars",

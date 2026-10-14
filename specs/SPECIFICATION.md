@@ -117,7 +117,6 @@ Matching uses **`fullmatch`** (the entire prompt text must match the pattern).
 NOISE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\s*<local-command-caveat>.*?</local-command-caveat>\s*", re.DOTALL),
     re.compile(r"\s*<local-command-stdout>.*?</local-command-stdout>\s*", re.DOTALL),
-    re.compile(r"\s*(?:<command-(?:name|message|args)>.*?</command-(?:name|message|args)>\s*)+", re.DOTALL),
     re.compile(r"\s*\[Request interrupted by user.*?\]\s*", re.DOTALL),
     re.compile(r"\s*##\s*Context Usage\b.*", re.DOTALL),
     re.compile(r"\s*<task-notification>.*?</task-notification>\s*", re.DOTALL),
@@ -125,11 +124,18 @@ NOISE_PATTERNS: list[re.Pattern[str]] = [
 ```
 
 These correspond to: local slash-command caveat blocks, local-command stdout
-dumps, slash-command tag wrappers (`<command-name>` / `<command-message>` /
-`<command-args>`), user-interruption markers, `/context`-style "Context
-Usage" dumps, and the `<task-notification>` blocks Claude Code injects when a
-background task finishes (they trigger an assistant reply, so they are noise
-rather than skipped events like `isMeta`).
+dumps, user-interruption markers, `/context`-style "Context Usage" dumps, and
+the `<task-notification>` blocks Claude Code injects when a background task
+finishes (they trigger an assistant reply, so they are noise rather than
+skipped events like `isMeta`).
+
+Slash-command tag wrappers (`<command-name>` / `<command-message>` /
+`<command-args>`) are **not** noise: the user typed the command, and
+`<command-args>` carries their own text (e.g. a skill brief, "looks good").
+Historical note: before 2026-10-14 a third pattern,
+`\s*(?:<command-(?:name|message|args)>.*?</command-(?:name|message|args)>\s*)+`,
+dropped them, so skill-driven sessions lost their instructions and their
+answers collapsed into one prompt-less pair.
 
 ---
 
@@ -339,7 +345,7 @@ Built with `argparse.ArgumentParser(description=__doc__)`.
 | `--since`      | `parse_date`  | —       | `Show entries on/after this date (YYYY-MM-DD or ISO).` |
 | `--until`      | `parse_date`  | `None`  | `Show entries before this date (exclusive).` |
 | `--project`    | string        | `None`  | `Substring filter on the project path.` |
-| `--no-noise`   | `store_true`  | `False` | `Drop machine-generated prompts (slash-command tags, local-command stdout/caveat, /context dumps, interruption markers, background-task notifications).` |
+| `--no-noise`   | `store_true`  | `False` | `Drop machine-generated prompts (local-command stdout/caveat, /context dumps, interruption markers, background-task notifications). Slash commands are kept: the user typed them.` |
 | `--max-chars`  | `int`         | `2000`  | `Truncate each message to this many characters (0 = no limit).` |
 | `--format`     | choice        | `text`  | one of `text`, `md`, `jsonl`, `json`, `html` |
 | `--json`       | `store_true`  | `False` | `Shortcut for --format json (emit a single JSON array).` |

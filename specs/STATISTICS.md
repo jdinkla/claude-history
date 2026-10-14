@@ -59,8 +59,7 @@ Each pair's `prompt` is classified into exactly one kind:
 
 | kind | meaning |
 |---|---|
-| `human` | text the user actually typed |
-| `slash_command` | `<command-name/message/args>` wrapper |
+| `human` | text the user actually typed, including slash commands (`<command-name/message/args>` wrapper) |
 | `interruption` | `[Request interrupted by user …]` marker |
 | `local_command` | `<local-command-stdout/caveat>` wrapper |
 | `context_dump` | `## Context Usage …` dump |
@@ -103,9 +102,8 @@ to touch exactly those two places.
     "pairs": 0,               // number of pairs in the input
     "human": 0,               // pairs classified `human`
     "kinds": {                // every kind always present, zero-filled
-      "human": 0, "slash_command": 0, "interruption": 0,
-      "local_command": 0, "context_dump": 0, "task_notification": 0,
-      "assistant_only": 0
+      "human": 0, "interruption": 0, "local_command": 0,
+      "context_dump": 0, "task_notification": 0, "assistant_only": 0
     },
     "sessions": 0,            // distinct session ids
     "projects": 0,            // distinct project paths

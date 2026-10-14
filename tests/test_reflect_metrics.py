@@ -57,9 +57,9 @@ class TestClassifyPrompt(unittest.TestCase):
     def test_none_is_assistant_only(self):
         self.assertEqual(rm.classify_prompt(None), "assistant_only")
 
-    def test_slash_command(self):
+    def test_slash_command_is_human(self):
         text = "<command-name>/commit</command-name>\n<command-args></command-args>"
-        self.assertEqual(rm.classify_prompt(text), "slash_command")
+        self.assertEqual(rm.classify_prompt(text), "human")
 
     def test_local_command_stdout(self):
         text = "<local-command-stdout>hello</local-command-stdout>"
@@ -117,6 +117,22 @@ class TestSlashCommandName(unittest.TestCase):
         self.assertIsNone(rm.slash_command_name("plain text"))
 
 
+class TestPromptText(unittest.TestCase):
+
+    def test_command_with_args(self):
+        text = ("<command-message>site-brief</command-message>\n"
+                "<command-name>/site-brief</command-name>\n"
+                "<command-args>a modern site</command-args>")
+        self.assertEqual(rm.prompt_text(text), "/site-brief a modern site")
+
+    def test_bare_command(self):
+        text = "<command-name>/commit</command-name>\n<command-args></command-args>"
+        self.assertEqual(rm.prompt_text(text), "/commit")
+
+    def test_plain_text_unchanged(self):
+        self.assertEqual(rm.prompt_text("please add a flag"), "please add a flag")
+
+
 # ---------------------------------------------------------------------------
 # 2. Metrics computation
 # ---------------------------------------------------------------------------
@@ -150,8 +166,9 @@ class TestComputeMetrics(unittest.TestCase):
         self.assertEqual(t["pairs"], 6)
         self.assertEqual(t["sessions"], 2)
         self.assertEqual(t["projects"], 1)
-        self.assertEqual(t["prompt_kinds"]["human"], 4)
-        self.assertEqual(t["prompt_kinds"]["slash_command"], 1)
+        # the typed /commit counts as human
+        self.assertEqual(t["prompt_kinds"]["human"], 5)
+        self.assertNotIn("slash_command", t["prompt_kinds"])
         self.assertEqual(t["prompt_kinds"]["interruption"], 1)
 
     def test_models(self):
@@ -174,9 +191,9 @@ class TestComputeMetrics(unittest.TestCase):
 
     def test_steering_followups(self):
         st = self.metrics["signals"]["steering_followups"]
-        # "no, the ini format" (s1) and "developers" (s2) are short follow-ups
-        self.assertEqual(st["count"], 2)
-        self.assertEqual(st["of_followups"], 2)
+        # "no, the ini format" and "/commit" (s1), "developers" (s2)
+        self.assertEqual(st["count"], 3)
+        self.assertEqual(st["of_followups"], 3)
 
     def test_assistant_questions(self):
         aq = self.metrics["signals"]["assistant_questions"]
@@ -207,7 +224,7 @@ class TestComputeMetrics(unittest.TestCase):
 
     def test_first_prompt_skips_machine_pairs(self):
         pairs = [
-            make_pair("<command-name>/clear</command-name>", timestamp="2026-07-01T10:00:00+02:00"),
+            make_pair("[Request interrupted by user]", timestamp="2026-07-01T10:00:00+02:00"),
             make_pair("<local-command-stdout>" + "x" * 5000 + "</local-command-stdout>",
                       timestamp="2026-07-01T10:01:00+02:00"),
             make_pair("fix the parser", timestamp="2026-07-01T10:02:00+02:00"),
@@ -220,7 +237,8 @@ class TestComputeMetrics(unittest.TestCase):
         pairs = [
             make_pair("build the parser", timestamp="2026-07-01T10:00:00+02:00"),
             make_pair("[Request interrupted by user for tool use]", timestamp="2026-07-01T10:01:00+02:00"),
-            make_pair("<command-name>/context</command-name>", timestamp="2026-07-01T10:02:00+02:00"),
+            make_pair("<local-command-stdout>context</local-command-stdout>",
+                      timestamp="2026-07-01T10:02:00+02:00"),
             make_pair("use the ini module", timestamp="2026-07-01T10:03:00+02:00"),
             make_pair("now add tests", timestamp="2026-07-01T10:04:00+02:00"),
         ]
@@ -244,9 +262,17 @@ class TestComputeMetrics(unittest.TestCase):
         pi = rm.compute_metrics(pairs)["signals"]["post_interruption_followups"]
         self.assertEqual(pi["count"], 0)
 
-    def test_post_interruption_none_without_interruption(self):
+    def test_post_interruption_slash_command(self):
+        # a slash command typed after Escape is the human follow-up
         pi = self.metrics["signals"]["post_interruption_followups"]
-        self.assertEqual(pi["count"], 0)
+        self.assertEqual(pi["count"], 1)
+        self.assertEqual(pi["exemplars"][0]["text"], "/commit")
+
+    def test_human_length_excludes_command_tags(self):
+        pairs = [make_pair("<command-name>/commit</command-name>\n"
+                           "<command-args>-m x</command-args>")]
+        m = rm.compute_metrics(pairs)
+        self.assertEqual(m["sessions"][0]["first_prompt_chars"], len("/commit -m x"))
 
     def test_empty_input(self):
         m = rm.compute_metrics([])
@@ -269,7 +295,7 @@ class TestRenderMarkdown(unittest.TestCase):
         self.assertIn("no, the ini format", md)
         self.assertIn("`claude-fable-5`: 4", md)
         self.assertIn("## Method notes", md)
-        self.assertIn("## Post-interruption follow-ups (0)", md)
+        self.assertIn("## Post-interruption follow-ups (1)", md)
 
     def test_empty(self):
         md = rm.render_markdown(rm.compute_metrics([]))
