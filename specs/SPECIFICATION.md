@@ -85,6 +85,7 @@ Each line is parsed as a JSON object. The tool only cares about these fields:
 | `sessionId`  | Session identifier (string). Missing → `""`.                         |
 | `message`    | The message object. Missing/falsy → treated as `{}`.                 |
 | `isMeta`     | Truthy on user events that Claude Code injects rather than the human typed (skill bodies, slash-command expansions, messages from other sessions, local-command caveats). Such events are always skipped. |
+| `isCompactSummary` | Truthy on the user event Claude Code writes when a session runs out of context ("This session is being continued from a previous conversation…"). Generated, not typed; always skipped. |
 | `cwd`        | Working directory at the time of the event. Used only to resolve the project path (§5.6). |
 
 The `message` object contains:
@@ -300,8 +301,8 @@ Algorithm:
          6. If `until is not None and ts >= until`, skip.
          7. `message = ev.get("message") or {}`.
          8. If `etype == "user"`:
-            - If `ev.get("isMeta")` is truthy, skip (injected, not typed by
-              the human).
+            - If `ev.get("isMeta")` or `ev.get("isCompactSummary")` is
+              truthy, skip (injected or generated, not typed by the human).
             - `text = extract_user_text(message)`; if `None`, skip.
             - If `drop_noise and is_noise(text)`, skip.
             - `yield Entry(ts, "user", None, text, ev.get("sessionId", ""), decoded)`.

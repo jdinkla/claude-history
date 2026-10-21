@@ -126,6 +126,8 @@ def scan(since: datetime) -> dict:
                 kind = origin.get("kind") if isinstance(origin, dict) else None
                 if ev.get("isMeta"):
                     machine[(session, text)] = "isMeta"
+                elif ev.get("isCompactSummary"):
+                    machine[(session, text)] = "isCompactSummary"
                 elif kind not in (None, "human"):
                     machine[(session, text)] = f"origin {kind}"
 

@@ -328,6 +328,20 @@ class TestIterEntries(unittest.TestCase):
         ])
         self.assertEqual([e.text for e in self._collect()], ["real prompt"])
 
+    def test_compact_summary_skipped(self):
+        proj = self._make_project("-Users-test-app")
+        ts = make_ts(self.now)
+        self._make_session(proj, "sess1", [
+            {"type": "user", "timestamp": ts, "sessionId": "sess1",
+             "isCompactSummary": True, "isVisibleInTranscriptOnly": True,
+             "message": {"content": "This session is being continued from a previous conversation"}},
+            {"type": "user", "timestamp": ts, "sessionId": "sess1",
+             "message": {"content": "real prompt"}},
+        ])
+        for drop_noise in (False, True):
+            self.assertEqual([e.text for e in self._collect(drop_noise=drop_noise)],
+                             ["real prompt"])
+
     def test_project_resolved_from_matching_cwd(self):
         proj = self._make_project("-Users-jane-my-app--claude-wt")
         ts = make_ts(self.now)

@@ -164,6 +164,25 @@ class TestChecks(CheckTestCase):
         self.assertEqual(status, "FAIL")
         self.assertIn("isMeta 1", detail)
 
+    def test_compact_summary_skipped_by_extraction_passes(self):
+        self.write("-Users-jane-my-app", "s1", [
+            user("s1", "This session is being continued", cwd="/Users/jane/my-app",
+                 isCompactSummary=True),
+        ])
+        self.assertEqual(self.rows()["machine-prompts"][0], "PASS")
+
+    def test_leaked_compact_summary_fails(self):
+        self.write("-Users-jane-my-app", "s1", [
+            user("s1", "This session is being continued", cwd="/Users/jane/my-app",
+                 isCompactSummary=True),
+        ])
+        pairs = [{"session": "s1", "prompt": "This session is being continued",
+                  "project": "/Users/jane/my-app"}]
+        with unittest.mock.patch.object(ct, "extract_pairs", return_value=pairs):
+            status, detail = self.rows()["machine-prompts"]
+        self.assertEqual(status, "FAIL")
+        self.assertIn("isCompactSummary 1", detail)
+
     def test_new_fields_warn_without_failing(self):
         self.write("-Users-jane-my-app", "s1", [
             user("s1", "hello", cwd="/Users/jane/my-app", brandNewFlag=True),

@@ -542,7 +542,7 @@ def iter_entries(since, until, project_filter, drop_noise) -> Iterator[Entry]:
                     message = ev.get("message") or {}
 
                     if etype == "user":
-                        if ev.get("isMeta"):
+                        if ev.get("isMeta") or ev.get("isCompactSummary"):
                             continue
                         text = extract_user_text(message)
                         if text is None:
