@@ -27,6 +27,8 @@ Python 3.11+ environment with `python3 -m pip install .`.
 ```bash
 claude-history --days 2
 codex-history --days 2
+claude-history --day -1             # yesterday only
+codex-history --day 2026-11-04      # one specific local date
 codex-history --days 7 --project my-app --json
 codex-history --days 30 --html > codex-history.html
 ```
@@ -54,6 +56,11 @@ description of every flag and its exact behavior is
 [`specs/SPECIFICATION.md`](specs/SPECIFICATION.md). One semantic worth knowing
 up front: bare `--since`/`--until` dates mean **local midnight** on the
 executing machine.
+
+Use `--day YYYY-MM-DD` for exactly one calendar day, or `--day 0` for today,
+`--day -1` for yesterday, `--day -2` for two days ago, and so on. Offsets are
+relative to the local current date; positive offsets select future days.
+`--day` cannot be combined with `--days`, `--since`, or `--until`.
 
 ### Worked Examples
 

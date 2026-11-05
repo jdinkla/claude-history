@@ -18,7 +18,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable, Iterator
 
@@ -570,6 +570,18 @@ def parse_date(s: str):
         dt = dt.astimezone()
     return dt
 
+
+def parse_day(s: str):
+    """Accept a calendar date or a signed offset from the local current date."""
+    if re.fullmatch(r"[+-]?[0-9]+", s):
+        return int(s)
+    if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", s):
+        try:
+            return date.fromisoformat(s)
+        except ValueError:
+            pass
+    raise argparse.ArgumentTypeError("expected YYYY-MM-DD or a day offset (0 = today, -1 = yesterday)")
+
 # ---------------------------------------------------------------------------
 # HTML rendering
 # ---------------------------------------------------------------------------
@@ -588,6 +600,12 @@ def main(argv=None, *, entry_reader=None, description=None, title_prefix="Claude
     ap = argparse.ArgumentParser(description=description or __doc__)
 
     date_group = ap.add_mutually_exclusive_group()
+    date_group.add_argument(
+        "--day",
+        type=parse_day,
+        default=None,
+        help="Show exactly one local day: YYYY-MM-DD or an offset (0 = today, -1 = yesterday).",
+    )
     date_group.add_argument(
         "--days",
         type=int,
@@ -644,6 +662,8 @@ def main(argv=None, *, entry_reader=None, description=None, title_prefix="Claude
     )
 
     args = ap.parse_args(argv)
+    if args.day is not None and args.until is not None:
+        ap.error("--day cannot be combined with --until")
 
     if args.json:
         args.format = "json"
@@ -652,13 +672,21 @@ def main(argv=None, *, entry_reader=None, description=None, title_prefix="Claude
 
     # Compute time window
     now = datetime.now().astimezone()
-    if args.since:
+    until = args.until
+    if args.day is not None:
+        try:
+            selected = now.date() + timedelta(days=args.day) if isinstance(args.day, int) else args.day
+            # Convert each midnight separately so DST days span 23 or 25 hours.
+            since = datetime.combine(selected, datetime.min.time()).astimezone()
+            until = datetime.combine(selected + timedelta(days=1), datetime.min.time()).astimezone()
+        except (OverflowError, ValueError):
+            ap.error("--day is outside the supported date range")
+    elif args.since:
         since = args.since
     else:
         days = args.days if args.days is not None else 1
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
         since = midnight - timedelta(days=max(days - 1, 0))
-    until = args.until
 
     # Collect and sort entries
     entries = list((entry_reader or iter_entries)(

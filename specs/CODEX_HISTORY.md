@@ -59,6 +59,12 @@ Default output is text for today. `--format` supports `text`, `md`, `jsonl`,
 `json`, `html`; `--json` and `--html` remain shortcuts. Empty machine-readable
 output remains valid. HTML titles start with `Codex history — since `.
 
+`--day YYYY-MM-DD` selects exactly that local calendar day; `--day 0` selects
+today and `--day -1` yesterday (any signed integer offset is supported within
+the date range). Both midnight bounds use the selected dates' local offsets,
+including daylight-saving transitions. `--day` cannot be combined with
+`--days`, `--since`, or `--until`; invalid dates and conflicting options exit 2.
+
 JSON pair fields are `timestamp`, `session`, `project`, `model`, `prompt`,
 `answer`, and `answer_timestamp`, compatible with the existing companion tools.
 Consecutive assistant text messages are joined into one answer. Repeated

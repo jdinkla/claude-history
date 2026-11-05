@@ -44,7 +44,7 @@ JSON/JSONL/HTML formats and equivalent output for the text/Markdown formats.
   their defaults preserve all Claude behavior specified here. The Codex
   command is specified separately in `CODEX_HISTORY.md`.
 - **Imports used:** `argparse`, `json`, `os`, `re`, `sys`, `dataclasses.dataclass`,
-  `datetime` (`datetime`, `timedelta`, `timezone`), `pathlib.Path`,
+  `datetime` (`date`, `datetime`, `timedelta`, `timezone`), `pathlib.Path`,
   `typing` (`Iterable`, `Iterator`), and `from __future__ import annotations`.
 - **Side effects:** reads files under `~/.claude/projects/`; writes only to
   `stdout` (and one diagnostic line to `stderr`). It never modifies the
@@ -348,6 +348,7 @@ Built with `argparse.ArgumentParser(description=__doc__)`.
 
 | Flag           | Type / action | Default | Help text |
 |----------------|---------------|---------|-----------|
+| `--day`        | `parse_day`   | `None`  | `Show exactly one local day: YYYY-MM-DD or an offset (0 = today, -1 = yesterday).` |
 | `--days`       | `int`         | `None`  | `Show entries from the last N days (default: 1 = today).` |
 | `--since`      | `parse_date`  | —       | `Show entries on/after this date (YYYY-MM-DD or ISO).` |
 | `--until`      | `parse_date`  | `None`  | `Show entries before this date (exclusive).` |
@@ -358,8 +359,14 @@ Built with `argparse.ArgumentParser(description=__doc__)`.
 | `--json`       | `store_true`  | `False` | `Shortcut for --format json (emit a single JSON array).` |
 | `--html`       | `store_true`  | `False` | `Shortcut for --format html (self-contained interactive page).` |
 
-- `--days` and `--since` are **mutually exclusive** (added via
+- `--day`, `--days`, and `--since` are **mutually exclusive** (added via
   `ap.add_mutually_exclusive_group()`).
+- Combining `--day` with `--until` is also an argparse error (exit 2), with
+  diagnostic `--day cannot be combined with --until`.
+- `parse_day` accepts `[+-]?[0-9]+` as an integer day offset, or strictly
+  `[0-9]{4}-[0-9]{2}-[0-9]{2}` as a valid `date.fromisoformat` calendar date.
+  Other input raises `argparse.ArgumentTypeError` with message
+  `expected YYYY-MM-DD or a day offset (0 = today, -1 = yesterday)`.
 - `--json` and `--html` are convenience overrides applied after parsing:
   if `args.json:` set `args.format = "json"`; if `args.html:` set
   `args.format = "html"`.
@@ -368,14 +375,25 @@ Built with `argparse.ArgumentParser(description=__doc__)`.
 
 ```python
 now = datetime.now().astimezone()
-if args.since:
+until = args.until
+if args.day is not None:
+    selected = now.date() + timedelta(days=args.day) if isinstance(args.day, int) else args.day
+    since = datetime.combine(selected, datetime.min.time()).astimezone()
+    until = datetime.combine(selected + timedelta(days=1), datetime.min.time()).astimezone()
+elif args.since:
     since = args.since
 else:
     days = args.days if args.days is not None else 1
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     since = midnight - timedelta(days=max(days - 1, 0))
-until = args.until
 ```
+
+`--day` selects exactly one local calendar day: inclusive midnight on the
+selected date through exclusive midnight on the following date. Offset `0`
+means today, `-1` yesterday, and `1` tomorrow. Convert each midnight to local
+time separately, so daylight-saving transition days can span 23 or 25 hours.
+If computing the date/bounds raises `OverflowError` or `ValueError`, report
+argparse error `--day is outside the supported date range` (exit 2).
 
 So `--days 1` (the default) means "since local midnight today"; `--days N`
 means "since local midnight `N-1` days ago" (i.e. today plus the previous `N-1`
