@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CLI tools that extract and analyze the prompt/answer history of Claude Code sessions from the transcript files under `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`. Two layers:
 
+`pyproject.toml` installs `claude-history` and `codex-history` as console commands
+(`uv tool install --editable .`). `codex_history.py` reads Codex rollouts under
+`$CODEX_HOME/{sessions,archived_sessions}` (default `~/.codex`) and reuses
+`claude_history.main` via its reader/description/title hooks. Codex behavior is
+specified in `specs/CODEX_HISTORY.md`; both commands share CLI/output schemas.
+
 1. **Extraction** — `claude_history.py` filters sessions by date/project and renders text, Markdown, JSONL, JSON pairs, or a self-contained interactive HTML page. `build_table.py` renders a saved pairs JSON as a flat HTML table. `stats.py` aggregates pairs JSON into usage statistics (per project/day/weekday/hour, models, sessions) as JSON or an HTML page (spec: `specs/STATISTICS.md`).
    `check_transcripts.py` (`just smoke`) checks the extraction's assumptions against the user's real transcripts; extend its `KNOWN_*` baselines only after reviewing a `new-fields` WARN.
 2. **Reflection** — `reflect_metrics.py` + the `/reflect` skill (`skills/reflect/SKILL.md`) implement Schön-style reflection-on-action over the user's own collaboration transcripts (see README "Reflection workflow").
@@ -14,7 +20,10 @@ CLI tools that extract and analyze the prompt/answer history of Claude Code sess
 
 - **Standard library only, Python ≥ 3.11.** Every script starts with a `uv run --script` shebang plus a PEP 723 block declaring `dependencies = []`. Do not add third-party packages.
 - **`specs/SPECIFICATION.md` is a complete behavioral spec** for `claude_history.py` — it claims an agent can re-implement the tool from it with byte-compatible JSON/JSONL/HTML output. Any behavior change to `claude_history.py` MUST update the spec in the same commit (precedent: TASK-9 changed date semantics in code + spec + README + tests together).
-- Scripts read only `~/.claude/projects/` and write only stdout (plus one stderr diagnostic).
+- History scripts read only local transcripts (Claude: `~/.claude/projects/`;
+  Codex: `$CODEX_HOME/{sessions,archived_sessions}`) and write only stdout (plus
+  one stderr diagnostic). Runtime dependencies remain empty; setuptools is a
+  packaging build dependency only.
 - **Never commit `reflections/`** (gitignored): reflection reports and extracted data quote private prompts verbatim.
 
 ## Commands

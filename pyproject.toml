@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-history"
+version = "0.2.0"
+description = "Extract and display local Claude Code and Codex session history"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+dependencies = []
+
+[project.scripts]
+claude-history = "claude_history:main"
+codex-history = "codex_history:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["claude_history", "codex_history"]

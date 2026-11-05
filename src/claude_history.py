@@ -584,8 +584,8 @@ def render_html(pairs, title):
 # Main
 # ---------------------------------------------------------------------------
 
-def main(argv):
-    ap = argparse.ArgumentParser(description=__doc__)
+def main(argv=None, *, entry_reader=None, description=None, title_prefix="Claude Code history"):
+    ap = argparse.ArgumentParser(description=description or __doc__)
 
     date_group = ap.add_mutually_exclusive_group()
     date_group.add_argument(
@@ -661,7 +661,7 @@ def main(argv):
     until = args.until
 
     # Collect and sort entries
-    entries = list(iter_entries(
+    entries = list((entry_reader or iter_entries)(
         since.astimezone(timezone.utc),
         until.astimezone(timezone.utc) if until else None,
         args.project,
@@ -752,7 +752,7 @@ def main(argv):
         return 0
 
     if args.format == "html":
-        title = "Claude Code history — since " + since.astimezone().date().isoformat()
+        title = title_prefix + " — since " + since.astimezone().date().isoformat()
         sys.stdout.write(render_html(build_pairs(), title))
         return 0
 

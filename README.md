@@ -1,16 +1,39 @@
-# `claude-history` — Extract and display Claude Code CLI session history
+# `claude-history` and `codex-history` — Local AI session history
 
-A command-line tool that extracts and displays the prompt/answer history of **Claude Code CLI** sessions. It reads the local session transcript files that Claude Code writes under `~/.claude/projects/`, filters them by date and project, and renders them as plain text, Markdown, JSON, JSON Lines, or a self-contained interactive HTML page.
+Two command-line tools that extract and display prompt/answer history from **Claude Code** and **Codex** sessions. They read local transcripts, filter by date and project, and render plain text, Markdown, JSON, JSON Lines, or a self-contained interactive HTML page.
 
 ## Requirements
 
 - **Python** 3.11 or later
-- **uv** (for script execution) — or run directly with `python3` on a 3.11+ interpreter
+- **uv** (recommended for installation and script execution) — or use `pip` for installation / `python3` to run scripts
 - **Optional:** `just` (for task shortcuts in the `justfile`)
 
 ## Installation & Usage
 
-The main script is `src/claude_history.py`, which self-bootstraps via `uv`:
+Install both commands once from this repository:
+
+```bash
+uv tool install --editable .
+# If uv reports its command directory is absent from PATH:
+uv tool update-shell
+# Then open a new terminal.
+```
+
+Both commands then work from any directory. The editable install picks up code
+changes in this checkout; keep the checkout at its current path. To install a
+standalone copy instead, use `uv tool install .`. Alternatively, install in a
+Python 3.11+ environment with `python3 -m pip install .`.
+
+```bash
+claude-history --days 2
+codex-history --days 2
+codex-history --days 7 --project my-app --json
+codex-history --days 30 --html > codex-history.html
+```
+
+To remove both commands: `uv tool uninstall claude-history`.
+
+The scripts also run without installation:
 
 ```bash
 # Run directly (uv handles Python provisioning)
@@ -21,6 +44,7 @@ uv run src/claude_history.py [options]
 
 # Or with Python 3.11+
 python3 src/claude_history.py [options]
+python3 src/codex_history.py [options]
 ```
 
 ### CLI Flags
@@ -46,6 +70,28 @@ executing machine.
 # Self-contained interactive HTML page
 ./src/claude_history.py --days 30 --html > history.html
 ```
+
+### Codex transcripts
+
+`codex-history` accepts the same flags and produces the same JSON schemas as
+`claude-history`. It reads rollout `.jsonl` files recursively from
+`~/.codex/sessions/` and `~/.codex/archived_sessions/`. Set `CODEX_HOME` to read a
+different Codex data directory. It reads transcripts only and never changes them.
+
+User prompts and assistant text (including progress updates) are included;
+tool calls/results, reasoning, system/developer messages, and recognized injected
+context are skipped. Mirrored event records are not counted twice. Model names
+come from turn context; the project comes from the recorded working directory.
+The current parser targets modern rollout logs and older `event_msg` text logs;
+image-only messages have no extractable text. Codex's transcript format can change.
+
+Codex exports can also feed `build_table.py`, `stats.py`, and `reflect_metrics.py`:
+
+```bash
+codex-history --days 30 --max-chars 0 --json | python3 /path/to/claude-history/src/stats.py
+```
+
+The full extraction rules are in [`specs/CODEX_HISTORY.md`](specs/CODEX_HISTORY.md).
 
 ## Reflection workflow (`/reflect`)
 

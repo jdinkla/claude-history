@@ -37,6 +37,12 @@ JSON/JSONL/HTML formats and equivalent output for the text/Markdown formats.
   Running `./src/claude_history.py …` directly lets `uv` provision the interpreter;
   `uv run src/claude_history.py …` and `python3 src/claude_history.py …` (on a 3.11+
   interpreter) are equivalent.
+- **Installed command:** `pyproject.toml` exposes `claude-history` through
+  `claude_history:main`. `main(argv=None)` parses process arguments when no
+  argument list is supplied. Its keyword-only `entry_reader`, `description`,
+  and `title_prefix` hooks let `codex_history.py` reuse the CLI and rendering;
+  their defaults preserve all Claude behavior specified here. The Codex
+  command is specified separately in `CODEX_HISTORY.md`.
 - **Imports used:** `argparse`, `json`, `os`, `re`, `sys`, `dataclasses.dataclass`,
   `datetime` (`datetime`, `timedelta`, `timezone`), `pathlib.Path`,
   `typing` (`Iterable`, `Iterator`), and `from __future__ import annotations`.

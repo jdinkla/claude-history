@@ -9,6 +9,11 @@ default:
     @just --list --unsorted
 
 [group('dev')]
+[doc("Install claude-history and codex-history as commands available from any directory")]
+install:
+    uv tool install --editable .
+
+[group('dev')]
 [doc("Run the test suite (or a single test: just test test_claude_history.TestParseDate)")]
 test *ARGS="discover -s tests -v":
     PYTHONPATH=tests python3 -m unittest {{ARGS}}
@@ -29,6 +34,16 @@ prompts DAYS PROJECT:
 [doc("Show prompts across all projects for the last K days (today + K-1 previous; noise filtered)")]
 days K FORMAT="text":
     ./src/claude_history.py --days {{K}} --no-noise --format {{FORMAT}}
+
+[group('history')]
+[doc("Show Codex prompts across all projects for the last K days (reads $CODEX_HOME, default ~/.codex)")]
+codex-days K FORMAT="text":
+    ./src/codex_history.py --days {{K}} --no-noise --format {{FORMAT}}
+
+[group('history')]
+[doc("Render a saved JSON pairs file as a flat HTML table (DST defaults to SRC with .html)")]
+table SRC DST="":
+    ./src/build_table.py "{{SRC}}" {{DST}}
 
 [group('history')]
 [doc("Show yesterday's prompts across all projects (noise filtered)")]
